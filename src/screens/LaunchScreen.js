@@ -11,6 +11,10 @@ import {
   TouchableOpacity,
   Animated,
 } from 'react-native';
+import {
+  widthPercentageToDP as wp,
+  heightPercentageToDP as hp,
+} from 'react-native-responsive-screen';
 
 const LaunchScreen = ({navigation}) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -90,12 +94,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     // paddingHorizontal: 30,
-    paddingTop: 180,
+    paddingTop: hp(25),
   },
   logo: {
     width: 220,
     height: 220,
-    marginBottom: 100,
+    marginBottom: hp(10),
     // tintColor: '#635BFF',
   },
   title: {
@@ -118,9 +122,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#635BFF',
     paddingVertical: 15,
     borderRadius: 10,
-    width: '90%',
+    width: wp(90),
     alignItems: 'center',
-    marginTop: 100,
+    marginTop: hp(20),
   },
   startButtonText: {
     fontSize: 18,

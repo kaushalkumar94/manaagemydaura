@@ -491,10 +491,51 @@ const DashboardScreen = () => {
 
   const sendVisit = async () => {
     Alert.alert(
-      "Can't share visit",
-      'Messaging service is down, message will be sent automatically once the service is up again.',
+      'Confirm to send the message', // Title
+      'Are you sure you want to send this message?', // Message
+      [
+        {
+          text: 'Cancel',
+          onPress: () => console.log('Send message cancelled'), // Optional: action when Cancel is pressed
+          style: 'cancel', // Correct property and value for 'Cancel' button
+        },
+        {
+          text: 'Send',
+          onPress: async () => {
+            console.log('Sending message confirmed for visitId:', visitId);
+            try {
+              const resultAction = await dispatch(sendVisitThunk({visitId}));
+
+              if (sendVisitThunk.fulfilled.match(resultAction)) {
+                console.log('Dispatched result:', resultAction.payload);
+                Alert.alert('Success', 'Visit details sent successfully!');
+              } else {
+                throw new Error(
+                  resultAction.payload || 'Failed to send visit details.',
+                );
+              }
+            } catch (error) {
+              console.error('Send Visit Error:', error.message || error);
+              Alert.alert(
+                'Error',
+                error.message || 'Failed to send visit details.',
+              );
+            } finally {
+              setLoading(false);
+            }
+
+            // If you're using the direct fetch function from earlier:
+            // await sendWhatsAppMessagesForVisit(visitId);
+            // Make sure to handle loading states / errors around this call
+          },
+          style: 'default', // Correct property and common style for a primary action
+        },
+      ],
+      // Optional: options object (e.g., { cancelable: false } to prevent dismissing by tapping outside)
+      {cancelable: true},
     );
   };
+
   const requestContactsPermission = async () => {
     if (Platform.OS === 'android') {
       try {
@@ -577,10 +618,6 @@ const DashboardScreen = () => {
       {text: 'Cancel', style: 'cancel'},
       {text: 'Add', onPress: () => handleAddWorkers()},
     ]);
-
-    setModalContactVisible(false);
-    setMenuModalVisible(false);
-    setSelectedContacts([]);
   };
 
   const handleAddWorkers = async () => {
@@ -610,6 +647,7 @@ const DashboardScreen = () => {
           {
             text: 'OK',
             onPress: () => {
+              setMenuModalVisible(false);
               setSelectedContacts([]);
               setModalContactVisible(false);
             },
@@ -804,7 +842,7 @@ const DashboardScreen = () => {
   };
   const handleAddSlot = () => {
     if (!startTime || !location || !message) {
-      Alert.alert('Please fill all fields to add a time slot.');
+      Alert.alert('Oops!', 'Please fill all fields to add a time slot.');
       return;
     }
 
@@ -1539,12 +1577,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F9FAFC',
+    backgroundColor: '#F7F7FF',
   },
 
   modalContactsListContainer: {
     flex: 1,
-    backgroundColor: '#F9FAFC',
+    backgroundColor: '#F7F7FF',
     paddingHorizontal: 12,
     paddingTop: 8,
   },
@@ -1591,7 +1629,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    paddingBottom: 32,
+    paddingBottom: 20,
     backgroundColor: 'white',
     elevation: 4,
     shadowColor: '#000',
@@ -1613,7 +1651,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 24,
     borderRadius: 10,
-    elevation: 2,
+    elevation: 1,
     shadowColor: '#635BFF',
     shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.2,
@@ -1644,8 +1682,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'white',
-    paddingVertical: 5,
-    // elevation: 10,
+    paddingVertical: 2,
   },
   headerLogo: {
     width: '60%',
@@ -1662,12 +1699,12 @@ const styles = StyleSheet.create({
     marginVertical: 8,
   },
   title: {
-    marginTop: 8,
+    marginTop: 2,
     fontSize: 20,
     paddingLeft: 10,
     fontWeight: 'bold',
-    color: '#000000',
-    fontFamily: 'roboto',
+    color: '#000',
+    fontFamily: 'Roboto-BoldItalic',
   },
 
   buttonContactContainer: {
@@ -1823,7 +1860,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: '#F7F7FF',
   },
   workerListModalContent: {
     width: '100%',
@@ -2107,7 +2144,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   scheduleModalContainer: {
-    // flex: 1,
+    flex: 1,
     backgroundColor: '#F7F7FF',
     // borderRadius: 15,
     padding: 24,

@@ -71,7 +71,7 @@ export const sendVisitThunk = createAsyncThunk(
   'visits/send',
   async ({visitId}, {rejectWithValue}) => {
     try {
-      const response = await api.post('/sms/sendsms', {visitId});
+      const response = await api.post('/sms/sendwhatsappvisit', {visitId});
       console.log('response:', response.data);
       return response.data;
     } catch (error) {
@@ -149,11 +149,12 @@ const visitSlice = createSlice({
         console.log('Message sent successfully');
         state.loading = false;
         state.error = null;
-        const index = state.visits.findIndex(
-          v => v.id === action.payload.sentVisit.id,
-        );
+
+        const sentVisitId = action.meta.arg.visitId;
+
+        const index = state.visits.findIndex(v => v.id === sentVisitId);
         if (index !== -1) {
-          state.visits[index] = action.payload.sentVisit;
+          state.visits[index] = {...state.visits[index], isSent: true};
         }
       })
       .addCase(sendVisitThunk.rejected, (state, action) => {
