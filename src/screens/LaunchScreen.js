@@ -21,7 +21,7 @@ const LaunchScreen = ({navigation}) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const startAnimation = () => {
-    fadeAnim.setValue(0); // Reset animation value before starting
+    fadeAnim.setValue(0);
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 500, // Smooth fade-in effect

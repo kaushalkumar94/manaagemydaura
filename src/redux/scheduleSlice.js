@@ -1,7 +1,6 @@
 import {createSlice, createAsyncThunk} from '@reduxjs/toolkit';
 import api from '../api/api';
 
-// CREATE SCHEDULE
 export const createSchedule = createAsyncThunk(
   'schedule/createSchedule',
   async ({date, slots}, {rejectWithValue}) => {
@@ -19,7 +18,6 @@ export const createSchedule = createAsyncThunk(
   },
 );
 
-// FETCH ALL SCHEDULES
 export const fetchAllSchedules = createAsyncThunk(
   'schedule/fetchAllSchedules',
   async (_, {rejectWithValue}) => {
@@ -36,7 +34,6 @@ export const fetchAllSchedules = createAsyncThunk(
   },
 );
 
-// DELETE SCHEDULE
 export const deleteSchedule = createAsyncThunk(
   'schedule/deleteSchedule',
   async (scheduleId, {rejectWithValue}) => {
@@ -53,19 +50,20 @@ export const deleteSchedule = createAsyncThunk(
   },
 );
 
-export const sendSchedule = createAsyncThunk(
-  'schedule/sendSchedule',
-  async ({scheduleId}, {rejectWithValue}) => {
+export const sendScheduleWhatsApp = createAsyncThunk(
+  'schedule/sendScheduleWhatsApp',
+  async ({scheduleId, date, slots, messages}, {rejectWithValue}) => {
     try {
-      const response = await api.post('/schedule/sendschedule', {
-        scheduleId,
+      const response = await api.post('/sms/schedule-whatsapp', {
+        scheduleId, // <-- ensure scheduleId is sent
+        date,
+        slots,
+        messages,
       });
-
-      return response.data;
+      return {scheduleId, ...response.data};
     } catch (error) {
-      console.error('Send Schedule Error:', error);
       return rejectWithValue(
-        error.response?.data?.message || 'Failed to send schedule',
+        error.response?.data?.message || 'Failed to send schedule via WhatsApp',
       );
     }
   },
@@ -98,12 +96,10 @@ const scheduleSlice = createSlice({
         state.loading = false;
         state.successMessage = action.payload.message;
 
-        // *** THIS IS THE MOST IMPORTANT LOG FOR DEBUGGING NOW ***
         console.log(
           'Backend Response (createSchedule.fulfilled):',
           action.payload,
         );
-        // *******************************************************
 
         const {date, slots} = action.meta.arg;
         const existingIndex = state.schedules.findIndex(s => s.date === date);
@@ -154,15 +150,25 @@ const scheduleSlice = createSlice({
         state.error = action.payload || 'Error deleting schedule';
       })
 
-      .addCase(sendSchedule.fulfilled, (state, action) => {
-        const {scheduleId} = action.payload;
-        const scheduleToUpdate = state.schedules.find(s => s.id === scheduleId);
-        if (scheduleToUpdate) {
-          scheduleToUpdate.isSent = true;
+      .addCase(sendScheduleWhatsApp.fulfilled, (state, action) => {
+        // If backend returns updatedSchedule, use it to update state
+        if (action.payload.updatedSchedule) {
+          const updated = action.payload.updatedSchedule;
+          const idx = state.schedules.findIndex(s => s.id === updated.id);
+          if (idx !== -1) {
+            state.schedules[idx] = updated;
+          }
+        } else {
+          // fallback: update isSent by id
+          const {scheduleId} = action.payload;
+          const schedule = state.schedules.find(s => s.id === scheduleId);
+          if (schedule) {
+            schedule.isSent = true;
+          }
         }
       })
 
-      .addCase(sendSchedule.rejected, (state, action) => {
+      .addCase(sendScheduleWhatsApp.rejected, (state, action) => {
         state.error = action.payload || 'Error sending schedule';
       });
   },

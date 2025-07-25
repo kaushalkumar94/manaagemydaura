@@ -15,8 +15,9 @@ import {
   ActivityIndicator,
   ScrollView,
   KeyboardAvoidingView,
+  BackHandler,
 } from 'react-native';
-import {sendSchedule} from '../redux/scheduleSlice';
+import {sendSchedule, sendScheduleWhatsApp} from '../redux/scheduleSlice';
 import {deleteSchedule} from '../redux/scheduleSlice';
 import {createMaterialTopTabNavigator} from '@react-navigation/material-top-tabs';
 import {NavigationContainer} from '@react-navigation/native';
@@ -26,7 +27,7 @@ import moment from 'moment-timezone';
 import api from '../api/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {useNavigation, CommonActions} from '@react-navigation/native';
+import {useNavigation, CommonActions, useFocusEffect} from '@react-navigation/native';
 import {logoutUser} from '../redux/authSlice';
 import * as Keychain from 'react-native-keychain';
 import {useDispatch, useSelector} from 'react-redux';
@@ -42,6 +43,170 @@ import {
   selectFilteredWorkers,
 } from '../redux/workerSlice';
 import {createSchedule, fetchAllSchedules} from '../redux/scheduleSlice';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+
+const LoadingOverlay = () => (
+  <View
+    style={{
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0,0,0,0.15)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 1000,
+    }}>
+    <ActivityIndicator size="large" color={COLORS.primary} />
+  </View>
+);
+
+const CustomAlertModal = ({visible, title, message, onClose, actions = []}) => {
+  const isSuccessSingleAction = title === 'Success' && actions.length === 1;
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: 'rgba(0,0,0,0.25)',
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}>
+        <View
+          style={{
+            backgroundColor: '#fff',
+            width: '90%',
+            borderRadius: 18,
+            paddingVertical: 28,
+            paddingHorizontal: 14,
+            minWidth: 300,
+            maxWidth: 340,
+            alignItems: 'center',
+            shadowColor: '#000',
+            shadowOffset: {width: 0, height: 6},
+            shadowOpacity: 0.15,
+            shadowRadius: 18,
+            elevation: 8,
+          }}>
+          <Text
+            style={{
+              fontSize: 21,
+              fontWeight: 'bold',
+              color: '#222',
+              marginBottom: 12,
+              textAlign: 'center',
+              letterSpacing: 0.2,
+            }}>
+            {title}
+          </Text>
+          <Text
+            style={{
+              fontSize: 16,
+              color: '#444',
+              marginBottom: 28,
+              textAlign: 'center',
+              lineHeight: 22,
+            }}>
+            {message}
+          </Text>
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: isSuccessSingleAction ? 'center' : 'center',
+              alignItems: 'center',
+              width: '100%',
+            }}>
+            {actions.length > 0 ? (
+              actions.map((action, idx) => (
+                <TouchableOpacity
+                  key={idx}
+                  style={{
+                    flex: isSuccessSingleAction ? 0 : 1,
+                    backgroundColor:
+                      action.style === 'destructive'
+                        ? '#F56565'
+                        : action.style === 'cancel'
+                        ? '#E0E3EB'
+                        : '#635BFF',
+                    paddingVertical: 13,
+                    borderRadius: 10,
+                    marginHorizontal: isSuccessSingleAction
+                      ? 0
+                      : idx === 0 && actions.length === 2
+                      ? 6
+                      : 0,
+                    marginLeft: isSuccessSingleAction ? 0 : idx > 0 ? 8 : 0,
+                    marginRight: isSuccessSingleAction
+                      ? 0
+                      : idx < actions.length - 1
+                      ? 8
+                      : 0,
+                    alignItems: 'center',
+                    minWidth: isSuccessSingleAction ? 110 : 120,
+                    maxWidth: isSuccessSingleAction ? 180 : undefined,
+                    width: isSuccessSingleAction ? '60%' : undefined,
+                    shadowColor: '#000',
+                    shadowOffset: {width: 0, height: 2},
+                    shadowOpacity: 0.06,
+                    shadowRadius: 2,
+                  }}
+                  onPress={action.onPress}
+                  activeOpacity={0.85}>
+                  <Text
+                    style={{
+                      color:
+                        action.style === 'destructive'
+                          ? '#fff'
+                          : action.style === 'cancel'
+                          ? '#333'
+                          : '#fff',
+                      fontWeight: 'bold',
+                      fontSize: 16,
+                      letterSpacing: 0.2,
+                    }}>
+                    {action.text}
+                  </Text>
+                </TouchableOpacity>
+              ))
+            ) : (
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#635BFF',
+                  paddingVertical: 13,
+                  borderRadius: 10,
+                  minWidth: 110,
+                  maxWidth: 180,
+                  width: '60%',
+                  alignItems: 'center',
+                  shadowColor: '#000',
+                  shadowOffset: {width: 0, height: 2},
+                  shadowOpacity: 0.06,
+                  shadowRadius: 2,
+                }}
+                onPress={onClose}
+                activeOpacity={0.85}>
+                <Text
+                  style={{
+                    color: '#fff',
+                    fontWeight: 'bold',
+                    fontSize: 16,
+                    letterSpacing: 0.2,
+                  }}>
+                  OK
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
 
 const DashboardScreen = () => {
   const [visits, setVisits] = useState([]);
@@ -63,8 +228,13 @@ const DashboardScreen = () => {
   // const [workers, setWorkers] = useState([]);
   const [workersModalVisible, setWorkersModalVisible] = useState(false);
   const [scheduleModalVisible, setScheduleModalVisible] = useState(false);
-  const [scheduleList, setScheduleList] = useState([]);
-
+  const [expandedSlotIndex, setExpandedSlotIndex] = useState(null);
+  const [alertModal, setAlertModal] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    actions: [],
+  });
   const [slots, setSlots] = useState([]);
   const [startTime, setStartTime] = useState('');
   const navigation = useNavigation();
@@ -122,8 +292,16 @@ const DashboardScreen = () => {
         const accessToken = await AsyncStorage.getItem('accessToken');
         const email = await AsyncStorage.getItem('email');
         if (!accessToken || !email) {
-          Alert.alert('Session expired', 'Please log in again.');
-          navigation.replace('Login');
+          showAlertModal('Session expired', 'Please log in again.', [
+            {
+              text: 'OK',
+              onPress: () => {
+                closeAlertModal();
+                navigation.replace('Login');
+              },
+            },
+          ]);
+          return;
         }
       } catch (error) {
         console.error('Error checking auth:', error);
@@ -133,6 +311,17 @@ const DashboardScreen = () => {
     checkAuth();
     dispatch(fetchAllSchedules());
   }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const onBackPress = () => {
+        BackHandler.exitApp();
+        return true;
+      };
+      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => subscription.remove();
+    }, [])
+  );
 
   const showMode = () => {
     setDateTimeMode('date');
@@ -177,22 +366,28 @@ const DashboardScreen = () => {
       console.error('Logout error:', error);
       setLoading(false);
 
-      Alert.alert('Logout Complete', 'You have been signed out.', [
-        {text: 'OK', onPress: () => navigation.navigate('Launch')},
+      showAlertModal('Logout Complete', 'You have been signed out.', [
+        {
+          text: 'OK',
+          onPress: () => {
+            closeAlertModal();
+            navigation.navigate('Launch');
+          },
+        },
       ]);
     }
   };
 
   const confirmLogout = () => {
-    Alert.alert('Confirm Logout', 'Are you sure you want to sign out?', [
-      {
-        text: 'Cancel',
-        style: 'cancel',
-      },
+    showAlertModal('Confirm Logout', 'Are you sure you want to log out?', [
+      {text: 'Cancel', style: 'cancel', onPress: closeAlertModal},
       {
         text: 'Logout',
         style: 'destructive',
-        onPress: handleLogout,
+        onPress: () => {
+          closeAlertModal();
+          handleLogout();
+        },
       },
     ]);
   };
@@ -204,96 +399,17 @@ const DashboardScreen = () => {
     if (dateTimeMode === 'date') {
       setDate(currentDate);
       setDateTimeMode('time');
-      setShowDatePicker(true); // Show time picker next
+      setShowDatePicker(true);
     } else {
       setDate(currentDate);
       setDateTimeText(moment(currentDate).format('YYYY-MM-DD HH:mm'));
-      setDateTimeMode('date'); // Reset mode for next use
+      setDateTimeMode('date');
     }
   };
 
-  // const addVisit = async () => {
-  //   if (!dateTimeText || !location || !message) {
-  //     Alert.alert('Error', 'All fields are required.');
-  //     return;
-  //   }
-
-  //   try {
-  //     const userEmail = await AsyncStorage.getItem('email');
-  //     if (!userEmail) {
-  //       Alert.alert('Error', 'User not logged in. Please log in again.');
-  //       return;
-  //     }
-
-  //     const visitData = {
-  //       createdBy: userEmail,
-  //       dateTime: dateTimeText,
-  //       location,
-  //       message,
-  //       isSent: false,
-  //     };
-
-  //     setLoading(true);
-
-  //     // 1. First add to server
-  //     const response = await api.post('/visits/add', visitData);
-  //     const newVisit = response.data.newVisit || {
-  //       ...visitData,
-  //       id: Date.now().toString(), // fallback ID if server doesn't provide
-  //     };
-
-  //     // 2. Get current visits from AsyncStorage
-  //     const storedVisits = await AsyncStorage.getItem('upcomingVisits');
-  //     let existingVisits = [];
-
-  //     try {
-  //       existingVisits = storedVisits ? JSON.parse(storedVisits) : [];
-  //       if (!Array.isArray(existingVisits)) {
-  //         existingVisits = []; // Ensure we always work with an array
-  //       }
-  //     } catch (e) {
-  //       console.error('Error parsing stored visits:', e);
-  //     }
-
-  //     // 3. Create updated visits array
-  //     const updatedVisits = [newVisit, ...existingVisits];
-
-  //     // 4. Update both state and AsyncStorage
-  //     setVisitList(updatedVisits);
-  //     await AsyncStorage.setItem(
-  //       'upcomingVisits',
-  //       JSON.stringify(updatedVisits),
-  //     ); // Fixed key
-
-  //     // 5. Reset form
-  //     setModalVisible(false);
-  //     setMenuModalVisible(false);
-  //     setDateTimeText('Select Date & Time');
-  //     setLocation('');
-  //     setMessage('');
-
-  //     Alert.alert('Success', 'Visit created successfully!');
-  //   } catch (error) {
-  //     console.error(
-  //       'Visit Creation Error:',
-  //       error.response?.data || error.message,
-  //     );
-
-  //     Alert.alert(
-  //       'Visit Creation Failed',
-  //       error.response?.data?.message ||
-  //         'Something went wrong. Please try again.',
-  //     );
-
-  //     // Optional: Revert optimistic update if you added one
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-
   const addVisit = async () => {
     if (!dateTimeText || !location || !message) {
-      Alert.alert('Error', 'All fields are required.');
+      showAlertModal('Error', 'All fields are required.');
       return;
     }
 
@@ -306,13 +422,17 @@ const DashboardScreen = () => {
     try {
       const userEmail = await AsyncStorage.getItem('email');
       if (!userEmail) {
-        Alert.alert('Error', 'User not logged in. Please log in again.');
-        navigation.dispatch(
-          CommonActions.reset({
-            index: 0,
-            routes: [{name: 'Launch'}],
-          }),
-        );
+        showAlertModal('Error', 'User not logged in. Please log in again.', [
+          {
+            text: 'OK',
+            onPress: () => {
+              closeAlertModal();
+              navigation.dispatch(
+                CommonActions.reset({index: 0, routes: [{name: 'Launch'}]}),
+              );
+            },
+          },
+        ]);
         return;
       }
 
@@ -333,22 +453,18 @@ const DashboardScreen = () => {
       if (addVisitThunk.fulfilled.match(resultAction)) {
         console.log('resultAction:', resultAction);
 
-        // --- START OF MODIFICATION ---
-        // Get the newVisit object. If it exists, create a *mutable copy* of it.
         // If it doesn't exist, fall back to creating a new object from visitData.
         let newVisit = resultAction.payload?.newVisit
-          ? {...resultAction.payload.newVisit} // Create a mutable copy here
+          ? {...resultAction.payload.newVisit} // mutable copy
           : {
               ...visitData,
               id: Date.now().toString(),
             };
 
-        // Ensure dateTime is a simple string for storage if it's an object from the backend
         if (
           typeof newVisit.dateTime === 'object' &&
           newVisit.dateTime !== null
         ) {
-          // Assuming your backend sends { date: 'YYYY-MM-DD', time: 'HH:MM' }
           if (newVisit.dateTime.date && newVisit.dateTime.time) {
             newVisit.dateTime = `${newVisit.dateTime.date} ${newVisit.dateTime.time}`;
           } else {
@@ -359,7 +475,6 @@ const DashboardScreen = () => {
             newVisit.dateTime = ''; // Fallback
           }
         }
-        // --- END OF MODIFICATION ---
 
         const storedVisits = await AsyncStorage.getItem('upcomingVisits');
 
@@ -381,20 +496,22 @@ const DashboardScreen = () => {
           JSON.stringify(updatedVisits),
         );
 
-        // 4. Clear UI state
         setModalVisible(false);
         setMenuModalVisible(false);
         setDateTimeText('Select Date & Time');
         setLocation('');
         setMessage('');
 
-        Alert.alert('Success', 'Visit created successfully!');
+        showAlertModal('Success', 'Visit created successfully!');
       } else {
-        Alert.alert('Error', resultAction.payload || 'Failed to create visit');
+        showAlertModal(
+          'Error',
+          resultAction.payload || 'Failed to create visit',
+        );
       }
     } catch (error) {
       console.error('Visit Creation Error:', error?.message || error);
-      Alert.alert(
+      showAlertModal(
         'Visit Creation Failed',
         'Something went wrong. Please try again.',
       );
@@ -404,18 +521,18 @@ const DashboardScreen = () => {
   };
 
   const deleteVisit = async visitId => {
-    Alert.alert(
+    showAlertModal(
       'Confirm Deletion',
       'Are you sure you want to delete this visit?',
       [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
+        {text: 'Cancel', style: 'cancel', onPress: closeAlertModal},
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => handleDeleteVisit(visitId),
+          onPress: () => {
+            closeAlertModal();
+            handleDeleteVisit(visitId);
+          },
         },
       ],
     );
@@ -424,7 +541,7 @@ const DashboardScreen = () => {
   const handleDeleteVisit = async visitId => {
     // setLoading(true);
     try {
-      const resultAction = await dispatch(deleteVisitThunk(visitId));
+      const resultAction = dispatch(deleteVisitThunk(visitId));
       console.log('resultAction:', resultAction);
 
       const updatedVisits = visitList.filter(visit => visit.id !== visitId);
@@ -436,10 +553,10 @@ const DashboardScreen = () => {
         JSON.stringify(updatedVisits),
       );
 
-      Alert.alert('Success', 'Visit deleted successfully.');
+      showAlertModal('Success', 'Visit deleted successfully.');
     } catch (error) {
       console.error('Visit deletion failed', error?.message || error);
-      Alert.alert(
+      showAlertModal(
         'Visit Deletion Failed',
         'Something went wrong. Please try again.',
       );
@@ -466,73 +583,43 @@ const DashboardScreen = () => {
     }
   };
 
-  // const sendVisit = async visitId => {
-  //   setLoading(true);
-  //   console.log('Sending Visit:', visitId);
-
-  //   try {
-  //     const resultAction = await dispatch(sendVisitThunk({visitId}));
-
-  //     if (sendVisitThunk.fulfilled.match(resultAction)) {
-  //       console.log('Dispatched result:', resultAction.payload);
-  //       Alert.alert('Success', 'Visit details sent successfully!');
-  //     } else {
-  //       throw new Error(
-  //         resultAction.payload || 'Failed to send visit details.',
-  //       );
-  //     }
-  //   } catch (error) {
-  //     console.error('Send Visit Error:', error.message || error);
-  //     Alert.alert('Error', error.message || 'Failed to send visit details.');
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-
-  const sendVisit = async () => {
-    Alert.alert(
-      'Confirm to send the message', // Title
-      'Are you sure you want to send this message?', // Message
+  const sendVisit = async visit => {
+    showAlertModal(
+      'Confirm to send the message',
+      'Are you sure you want to send this message?',
       [
-        {
-          text: 'Cancel',
-          onPress: () => console.log('Send message cancelled'), // Optional: action when Cancel is pressed
-          style: 'cancel', // Correct property and value for 'Cancel' button
-        },
+        {text: 'Cancel', style: 'cancel', onPress: closeAlertModal},
         {
           text: 'Send',
           onPress: async () => {
-            console.log('Sending message confirmed for visitId:', visitId);
             try {
-              const resultAction = await dispatch(sendVisitThunk({visitId}));
+              const resultAction = await dispatch(
+                sendVisitThunk({
+                     visitId: visit.id, 
+                  message: visit.message,
+                  dateTime: visit.dateTime,
+                  location: visit.location,
 
+                }),
+              );
               if (sendVisitThunk.fulfilled.match(resultAction)) {
-                console.log('Dispatched result:', resultAction.payload);
-                Alert.alert('Success', 'Visit details sent successfully!');
+                // Remove setVisitList, rely on Redux state for UI update
+                showAlertModal('Success', 'Visit details sent successfully!');
               } else {
                 throw new Error(
                   resultAction.payload || 'Failed to send visit details.',
                 );
               }
             } catch (error) {
-              console.error('Send Visit Error:', error.message || error);
-              Alert.alert(
+              showAlertModal(
                 'Error',
                 error.message || 'Failed to send visit details.',
               );
-            } finally {
-              setLoading(false);
             }
-
-            // If you're using the direct fetch function from earlier:
-            // await sendWhatsAppMessagesForVisit(visitId);
-            // Make sure to handle loading states / errors around this call
           },
-          style: 'default', // Correct property and common style for a primary action
+          style: 'default',
         },
       ],
-      // Optional: options object (e.g., { cancelable: false } to prevent dismissing by tapping outside)
-      {cancelable: true},
     );
   };
 
@@ -565,7 +652,7 @@ const DashboardScreen = () => {
       console.log('[2] Permission result:', hasPermission);
 
       if (!hasPermission) {
-        Alert.alert('Permission Denied', 'Cannot access contacts.');
+        showAlertModal('Permission Denied', 'Cannot access contacts.');
         return;
       }
 
@@ -593,7 +680,7 @@ const DashboardScreen = () => {
       setContacts(formattedContacts);
     } catch (error) {
       console.error('[ERROR] Load contacts error:', error);
-      Alert.alert('Error', 'Failed to load contacts.');
+      showAlertModal('Error', 'Failed to load contacts.');
     } finally {
       console.log('[7] Loading complete');
       setLoading(false);
@@ -610,19 +697,40 @@ const DashboardScreen = () => {
 
   const confirmAddWorkers = () => {
     if (selectedContacts.length === 0) {
-      Alert.alert('No Selection', 'Please select at least one contact.');
+      showAlertModal('No Selection', 'Please select at least one contact.');
       return;
     }
-
-    Alert.alert('Confirm', `Add ${selectedContacts.length} workers?`, [
-      {text: 'Cancel', style: 'cancel'},
-      {text: 'Add', onPress: () => handleAddWorkers()},
+    const addText =
+      selectedContacts.length === 1
+        ? 'Add 1 worker'
+        : `Add ${selectedContacts.length} workers?`;
+    showAlertModal('Confirm', addText, [
+      {text: 'Cancel', style: 'cancel', onPress: closeAlertModal},
+      {
+        text: selectedContacts.length === 1 ? 'Add Worker' : `Add Workers`,
+        onPress: () => {
+          closeAlertModal();
+          handleAddWorkers();
+        },
+      },
     ]);
   };
 
   const handleAddWorkers = async () => {
     if (selectedContacts.length === 0) {
-      Alert.alert('Error', 'Please select at least one contact.');
+      showAlertModal('Error', 'Please select at least one contact.');
+      return;
+    }
+    const existingPhoneNumbers = new Set(
+      (workers || []).map(w => w.phoneNumber),
+    );
+    const newContacts = selectedContacts.filter(
+      contact =>
+        !existingPhoneNumbers.has(contact.phoneNumber.replace(/[^0-9]/g, '')),
+    );
+
+    if (newContacts.length === 0) {
+      showAlertModal('Info', 'All selected workers are already added.');
       return;
     }
 
@@ -631,7 +739,7 @@ const DashboardScreen = () => {
     try {
       console.log('Selected Contacts:', selectedContacts);
 
-      const workersData = selectedContacts.map(contact => ({
+      const workersData = newContacts.map(contact => ({
         name: contact.name,
         phoneNumber: contact.phoneNumber.replace(/[^0-9]/g, ''),
       }));
@@ -643,18 +751,24 @@ const DashboardScreen = () => {
       console.log('API Response:', response.data);
 
       if (response.data && response.data.addedWorkers > 0) {
-        Alert.alert('Success', `${selectedContacts.length} workers added!`, [
-          {
-            text: 'OK',
-            onPress: () => {
-              setMenuModalVisible(false);
-              setSelectedContacts([]);
-              setModalContactVisible(false);
+        const addedCount = response.data.addedWorkers;
+        showAlertModal(
+          'Success',
+          `${addedCount} worker${addedCount === 1 ? '' : 's'} added!`,
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                closeAlertModal();
+                setMenuModalVisible(false);
+                setSelectedContacts([]);
+                setModalContactVisible(false);
+              },
             },
-          },
-        ]);
+          ],
+        );
       } else {
-        throw new Error(response.data?.message || 'Failed to add workers');
+        showAlertModal('Info', 'No new workers were added.');
       }
     } catch (error) {
       console.error(
@@ -662,7 +776,7 @@ const DashboardScreen = () => {
         error.response?.data || error.message,
       );
 
-      Alert.alert(
+      showAlertModal(
         'Add Workers Failed',
         error.response?.data?.message ||
           'Something went wrong. Please try again.',
@@ -714,13 +828,19 @@ const DashboardScreen = () => {
 
   const confirmRemovedWorkers = () => {
     if (selectedContacts.length === 0) {
-      Alert.alert('No Selection', 'Please select at least one contact.');
+      showAlertModal('No Selection', 'Please select at least one contact.');
       return;
     }
 
-    Alert.alert('Confirm', `Removed ${selectedContacts.length} workers?`, [
-      {text: 'Cancel', style: 'cancel'},
-      {text: 'Removed', onPress: () => handleRemovedWorkers()},
+    showAlertModal('Confirm', `Removed ${selectedContacts.length} workers?`, [
+      {text: 'Cancel', style: 'cancel', onPress: closeAlertModal},
+      {
+        text: 'Removed',
+        onPress: () => {
+          closeAlertModal();
+          handleRemovedWorkers();
+        },
+      },
     ]);
 
     setWorkersModalVisible(false);
@@ -729,7 +849,7 @@ const DashboardScreen = () => {
 
   const handleRemovedWorkers = async () => {
     if (selectedContacts.length === 0) {
-      Alert.alert('Error', 'Please select at least one contact.');
+      showAlertModal('Error', 'Please select at least one contact.');
       return;
     }
 
@@ -750,15 +870,20 @@ const DashboardScreen = () => {
       console.log('API Response:', response.data);
 
       if (response.data && response.data.success) {
-        Alert.alert('Success', `${selectedContacts.length} workers removed!`, [
-          {
-            text: 'OK',
-            onPress: () => {
-              setSelectedContacts([]);
-              setWorkersModalVisible(false);
+        showAlertModal(
+          'Success',
+          `${selectedContacts.length} workers removed!`,
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                closeAlertModal();
+                setSelectedContacts([]);
+                setWorkersModalVisible(false);
+              },
             },
-          },
-        ]);
+          ],
+        );
       } else {
         throw new Error(response.data?.message || 'Failed to add workers');
       }
@@ -768,7 +893,7 @@ const DashboardScreen = () => {
         error.response?.data || error.message,
       );
 
-      Alert.alert(
+      showAlertModal(
         'Add Workers Failed',
         error.response?.data?.message ||
           'Something went wrong. Please try again.',
@@ -794,44 +919,15 @@ const DashboardScreen = () => {
     return `${String(hours).padStart(2, '0')}:${minutes}:00`;
   };
 
-  // const handleSchedule = () => {
-  //   if (!date || slots.length === 0) {
-  //     Alert.alert(
-  //       'Missing Information',
-  //       'Please select a date and add at least one time slot.',
-  //     );
-  //     return;
-  //   }
-
-  //   // Format date as dd-mm-yy
-  //   const formattedDate = `${String(date.getDate()).padStart(2, '0')}-${String(
-  //     date.getMonth() + 1,
-  //   ).padStart(2, '0')}-${String(date.getFullYear()).slice(-2)}`;
-
-  //   const schedulePayload = {
-  //     date: formattedDate, // Format: dd-mm-yy
-  //     slots: slots.map(slot => ({
-  //       time: slot.startTime, // Only start time
-  //       message: slot.message,
-  //       location: slot.location,
-  //     })),
-  //   };
-
-  //   dispatch(addSchedule(schedulePayload));
-  //   Alert.alert('Success', 'Schedule added successfully!');
-  //   setScheduleModalVisible(false); // Close modal
-  // };
-
   const openScheduleModal = () => {
     setScheduleModalVisible(true);
-    setDate('');
+    setDate(new Date());
     setLocation('');
     setStartTime('');
     setMessage('');
     setMenuModalVisible(false);
   };
 
-  // Function to close modal
   const closeScheduleModal = () => {
     setScheduleModalVisible(false);
     setScheduleDate('');
@@ -842,7 +938,7 @@ const DashboardScreen = () => {
   };
   const handleAddSlot = () => {
     if (!startTime || !location || !message) {
-      Alert.alert('Oops!', 'Please fill all fields to add a time slot.');
+      showAlertModal('Oops!', 'Please fill all fields to add a time slot.');
       return;
     }
 
@@ -854,37 +950,15 @@ const DashboardScreen = () => {
 
     setSlots(prevSlots => [...prevSlots, newSlot]);
 
-    // Reset fields
+    // Reset
     setStartTime(null);
     setLocation('');
     setMessage('');
   };
 
-  // const handleSchedule = () => {
-  //   if (!scheduleDate || slots.length === 0) {
-  //     Alert.alert(
-  //       'Missing Information',
-  //       'Please enter a date and add at least one slot.',
-  //     );
-  //     return;
-  //   }
-
-  //   const payload = {
-  //     date, // already a string
-  //     slots, // already contains string values
-  //   };
-
-  //   dispatch(createSchedule(payload));
-  //   Alert.alert('Success', 'Schedule saved successfully!');
-  //   setDate('');
-  //   setSlots([]);
-  //   closeScheduleModal;
-  //   setScheduleModalVisible(false);
-  // };
-
   const handleSchedule = async () => {
     if (!scheduleDate || slots.length === 0) {
-      Alert.alert(
+      showAlertModal(
         'Missing Information',
         'Please enter a date and add at least one slot.',
       );
@@ -908,44 +982,57 @@ const DashboardScreen = () => {
     dispatch(createSchedule(payload))
       .unwrap()
       .then(() => {
-        Alert.alert('Success', 'Schedule saved successfully!');
+        showAlertModal('Success', 'Schedule saved successfully!');
         setScheduleDate(null);
         setSlots([]);
         closeScheduleModal();
       })
       .catch(error => {
         console.error('Schedule error:', error);
-        Alert.alert('Error', error?.message || 'Something went wrong.');
+        showAlertModal('Error', error?.message || 'Something went wrong.');
       });
   };
 
   const handleScheduleDelete = async scheduleId => {
     try {
       console.log('scheduleId:', scheduleId);
-      const resultAction = await dispatch(deleteSchedule(scheduleId));
+      const resultAction = dispatch(deleteSchedule(scheduleId));
       console.log('resultAction:', resultAction);
 
-      const updatedSchedules = scheduleList.filter(
-        schedule => schedule.id !== scheduleId,
-      );
+      // const updatedSchedules = schedules.filter(
+      //   schedule => schedule.id !== scheduleId,
+      // );
 
-      setScheduleList(updatedSchedules);
-      await AsyncStorage.setItem('schedules', JSON.stringify(updatedSchedules));
-      Alert.alert('Success', 'Schedule deleted successfully.');
+      // setSchedules(updatedSchedules);
+      // await AsyncStorage.setItem('schedules', JSON.stringify(updatedSchedules));
+      showAlertModal('Success', 'Schedule deleted successfully.');
     } catch (error) {
       console.error('Schedule deletion failed', error?.message || error);
-      Alert.alert(
+      showAlertModal(
         'Schedule Deletion Failed',
         'Something went wrong. Please try again.',
       );
     }
   };
 
-  const handleScheduleSend = () => {
-    Alert.alert(
-      "Can't share schedule",
-      'Messaging service is down, message will be sent automatically once the service is up again.',
-    );
+  const handleScheduleSend = schedule => {
+   
+    dispatch(
+      sendScheduleWhatsApp({
+        scheduleId: schedule.id,
+        date: schedule.date,
+        slots: schedule.slots, 
+      }),
+    )
+      .unwrap()
+      .then(() => {
+      
+        showAlertModal('Success', 'Schedule sent via WhatsApp!');
+      })
+      .catch(error => {
+       
+        showAlertModal('Error', error?.message || 'Failed to send schedule.');
+      });
   };
 
   const ScheduleCard = ({
@@ -964,7 +1051,12 @@ const DashboardScreen = () => {
           <View key={index} style={styles.slotRow}>
             <Text style={styles.slotTime}>{slot.time}</Text>
             <View style={styles.slotDetails}>
-              <Text style={styles.slotMessage}>{slot.message}</Text>
+              <Text
+                style={styles.slotMessage}
+                numberOfLines={3}
+                ellipsizeMode="tail">
+                {slot.message}
+              </Text>
               {slot.location ? (
                 <Text style={styles.slotLocation}>{slot.location}</Text>
               ) : null}
@@ -974,7 +1066,7 @@ const DashboardScreen = () => {
         {slots.length > 4 && (
           <TouchableOpacity onPress={() => setExpanded(!expanded)}>
             <Text style={styles.moreLessText}>
-              {expanded ? 'Show less' : '...more'}
+              {expanded ? 'View less' : '...View More'}
             </Text>
           </TouchableOpacity>
         )}
@@ -985,12 +1077,54 @@ const DashboardScreen = () => {
           <View style={styles.buttonContainer}>
             <TouchableOpacity
               style={styles.deleteButton}
-              onPress={() => handleScheduleDelete(schedule.id)}>
+              onPress={() => {
+                showAlertModal(
+                  'Delete Schedule',
+                  'Are you sure you want to delete this schedule?',
+                  [
+                    {text: 'Cancel', style: 'cancel', onPress: closeAlertModal},
+                    {
+                      text: 'Delete',
+                      style: 'destructive',
+                      onPress: () => {
+                        closeAlertModal();
+                        handleScheduleDelete(schedule.id);
+                      },
+                    },
+                  ],
+                );
+              }}>
               <Text style={styles.buttonText}>Delete</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.sendButton}
-              onPress={handleScheduleSend}>
+              onPress={() => {
+                console.log('Send Schedule Button Pressed. Payload:', {
+                  id: schedule.id,
+                  date: schedule.date,
+                  slots: schedule.slots,
+                  messages: schedule.slots.map(slot => slot.message),
+                  isSent: schedule.isSent,
+                });
+                showAlertModal(
+                  'Send Schedule',
+                  'Are you sure you want to send this schedule via WhatsApp?',
+                  [
+                    {text: 'Cancel', style: 'cancel', onPress: closeAlertModal},
+                    {
+                      text: 'Send',
+                      onPress: () => {
+                        closeAlertModal();
+                        handleScheduleSend(schedule);
+                        setTimeout(() => {
+                          const updated = schedules.find(s => s.id === schedule.id);
+                          console.log('After send, schedule.isSent:', updated?.isSent, updated);
+                        }, 1500);
+                      },
+                    },
+                  ],
+                );
+              }}>
               <Text style={styles.buttonText}>Send</Text>
             </TouchableOpacity>
           </View>
@@ -1008,9 +1142,26 @@ const DashboardScreen = () => {
       <FlatList
         style={styles.flatList}
         data={sortedVisits}
+        showsVerticalScrollIndicator={false}
         keyExtractor={item => item.id}
         ListEmptyComponent={
-          <Text style={styles.noVisitsText}>No visits created yet..</Text>
+          <View
+            style={[
+              styles.emptyStateContainer,
+              {
+                flexDirection: 'row',
+                justifyContent: 'center',
+                alignItems: 'center',
+              },
+            ]}>
+            <Ionicons
+              name="people-outline"
+              size={32}
+              color="#A0AEC0"
+              style={{marginRight: 8}}
+            />
+            <Text style={styles.emptyStateText}>No visits created yet..</Text>
+          </View>
         }
         renderItem={({item}) => (
           <View style={styles.card}>
@@ -1032,7 +1183,20 @@ const DashboardScreen = () => {
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.sendButton}
-                  onPress={() => sendVisit(item.id)}>
+                  onPress={() => {
+                    console.log('Send Visit Button Pressed. Payload:', {
+                      id: item.id,
+                      dateTime: item.dateTime,
+                      location: item.location,
+                      message: item.message,
+                      isSent: item.isSent,
+                    });
+                    sendVisit(item);
+                    setTimeout(() => {
+                      const updated = visitsFetched.find(v => v.id === item.id);
+                      console.log('After send, visit.isSent:', updated?.isSent, updated);
+                    }, 1500);
+                  }}>
                   <Text style={styles.buttonText}>Send</Text>
                 </TouchableOpacity>
               </View>
@@ -1052,14 +1216,33 @@ const DashboardScreen = () => {
       <FlatList
         style={styles.flatList}
         data={sortedSchedules}
+        showsVerticalScrollIndicator={false}
         keyExtractor={(item, index) => `${item.date}-${index}`}
         ListEmptyComponent={
-          <Text style={styles.noVisitsText}>No schedules created yet..</Text>
+          <View
+            style={[
+              styles.emptyStateContainer,
+              {
+                flexDirection: 'row',
+                justifyContent: 'center',
+                alignItems: 'center',
+              },
+            ]}>
+            <Ionicons
+              name="calendar-outline"
+              size={32}
+              color="#A0AEC0"
+              style={{marginRight: 8}}
+            />
+            <Text style={styles.emptyStateText}>
+              No schedules created yet..
+            </Text>
+          </View>
         }
         renderItem={({item}) => (
           <ScheduleCard
             schedule={item}
-            handleScheduleSend={handleScheduleSend}
+            handleScheduleSend={() => handleScheduleSend(item)}
             handleScheduleDelete={handleScheduleDelete}
           />
         )}
@@ -1067,13 +1250,19 @@ const DashboardScreen = () => {
     );
   };
 
+  const showAlertModal = (title, message, actions) => {
+    setAlertModal({visible: true, title, message, actions: actions || []});
+  };
+
+  const closeAlertModal = () => setAlertModal({...alertModal, visible: false});
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.container}>
         <Image
           source={require('../assets/header.png')}
           style={styles.headerLogo}></Image>
-        {/* Header */}
+
         <View style={styles.header}>
           <Text style={styles.title}>Upcoming Events</Text>
           <View style={styles.buttonGroup}>
@@ -1089,14 +1278,11 @@ const DashboardScreen = () => {
 
         <Tab.Navigator
           screenOptions={{
-            tabBarLabelStyle: {
-              fontSize: 16,
-              fontWeight: 'bold',
-              // color: '#635BFF',
-            },
+            tabBarLabelStyle: {fontSize: 18, fontWeight: 'bold'},
             tabBarIndicatorStyle: {
-              backgroundColor: '#635BFF',
-              height: '3',
+              backgroundColor: COLORS.primary,
+              height: 3,
+              width: '50%',
             },
             tabBarStyle: {backgroundColor: '#fff'},
           }}>
@@ -1111,60 +1297,121 @@ const DashboardScreen = () => {
         <Modal visible={modalVisible} transparent animationType="fade">
           <TouchableWithoutFeedback onPress={() => setModalVisible(false)}>
             <View style={styles.modalOverlaym}>
-              <View style={styles.modalContainerm}>
-                <Text style={styles.modalTitlem}>Create Visit</Text>
+              <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={{
+                  width: '100%',
+                  alignItems: 'center',
+                  flex: 1,
+                  justifyContent: 'center',
+                }}
+                keyboardVerticalOffset={60}>
+                <View style={styles.modalContainerm}>
+                  <ScrollView
+                    contentContainerStyle={{paddingBottom: 10}}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}>
+                    <Text style={styles.modalTitlem}>Create Visit</Text>
 
-                <View style={styles.dateTimeInputContainerm}>
-                  <TouchableOpacity
-                    onPress={showMode}
-                    style={styles.datePickerButtonm}>
-                    <Text>{dateTimeText}</Text>
-                  </TouchableOpacity>
+                    <View
+                      style={[
+                        styles.dateTimeInputContainerm,
+                        {
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          marginBottom: 10,
+                        },
+                      ]}>
+                      <Ionicons
+                        name="calendar-outline"
+                        size={25}
+                        color={COLORS.primaryDark}
+                        style={{
+                          marginRight: 8,
+                          marginBottom: 12,
+                          alignSelf: 'center',
+                        }}
+                      />
+                      <TouchableOpacity
+                        onPress={showMode}
+                        style={styles.datePickerButtonm}>
+                        <Text style={styles.dateTimeTextm}>{dateTimeText}</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {showDatePicker && (
+                      <DateTimePicker
+                        value={
+                          date instanceof Date && !isNaN(date)
+                            ? date
+                            : new Date()
+                        }
+                        mode={dateTimeMode}
+                        is24Hour={false}
+                        display="default"
+                        onChange={handleDateChange}
+                        minimumDate={new Date()}
+                      />
+                    )}
+                    <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                      <Ionicons
+                        name="location-outline"
+                        size={26}
+                        color={COLORS.primaryDark}
+                        style={{
+                          marginRight: 8,
+                          marginBottom: 12,
+                          alignSelf: 'center',
+                        }}
+                      />
+                      <TextInput
+                        placeholder="Location"
+                        placeholderTextColor="grey"
+                        value={location}
+                        onChangeText={setLocation}
+                        style={styles.inputm}
+                      />
+                    </View>
+                    <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                      <Ionicons
+                        name="chatbubble-ellipses-outline"
+                        size={24}
+                        color={COLORS.primaryDark}
+                        style={{
+                          marginRight: 8,
+                          marginBottom: 12,
+                          alignSelf: 'center',
+                        }}
+                      />
+                      <TextInput
+                        placeholder="Message"
+                        placeholderTextColor="grey"
+                        value={message}
+                        onChangeText={setMessage}
+                        multiline={true}
+                        returnKeyType="default"
+                        style={[styles.inputm, styles.messageInputm]}
+                      />
+                    </View>
+
+                    <View style={styles.modalButtonsm}>
+                      <TouchableOpacity
+                        style={[styles.cancelButtonm, styles.modalButtonm]}
+                        onPress={cancelVisit}>
+                        <Text style={styles.cancelButtonTextm}>Cancel</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.createButtonm, styles.modalButtonm]}
+                        onPress={addVisit}
+                        disabled={loading}>
+                        <Text style={styles.createButtonTextm}>
+                          {loading ? 'Creating...' : 'Create'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </ScrollView>
                 </View>
-
-                {showDatePicker && (
-                  <DateTimePicker
-                    value={date}
-                    mode={dateTimeMode}
-                    is24Hour={false}
-                    display="default"
-                    onChange={handleDateChange}
-                    minimumDate={new Date()}
-                  />
-                )}
-                <TextInput
-                  placeholder="Location"
-                  placeholderTextColor="grey"
-                  value={location}
-                  onChangeText={setLocation}
-                  style={styles.inputm}
-                />
-                <TextInput
-                  placeholder="Message"
-                  placeholderTextColor="grey"
-                  value={message}
-                  onChangeText={setMessage}
-                  multiline={true}
-                  returnKeyType="default"
-                  style={[styles.inputm]}
-                />
-
-                <View style={styles.modalButtonsm}>
-                  <TouchableOpacity
-                    style={[styles.cancelButtonm, styles.modalButtonm]}
-                    onPress={cancelVisit}>
-                    <Text style={styles.cancelButtonTextm}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.createButtonm, styles.modalButtonm]}
-                    onPress={addVisit}
-                    disabled={loading}>
-                    <Text style={styles.createButtonTextm}>
-                      {loading ? 'Creating...' : 'Create'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
+              </KeyboardAvoidingView>
             </View>
           </TouchableWithoutFeedback>
         </Modal>
@@ -1214,13 +1461,63 @@ const DashboardScreen = () => {
           animationType="fade"
           onRequestClose={closeContactsModal}>
           <View style={styles.modalContactsContainer}>
-            <View style={styles.modalContactsHeader}>
-              <Text style={styles.modalContactsTitle}>Select Workers</Text>
-              <TouchableOpacity onPress={closeContactsModal}>
-                <Text style={{color: COLORS.primary, fontSize: 16}}>Close</Text>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginTop: 10,
+                paddingBottom: 22,
+                paddingTop: 12,
+                paddingHorizontal: 20,
+                backgroundColor: '#fff',
+                borderTopLeftRadius: 18,
+                borderTopRightRadius: 18,
+                position: 'relative',
+              }}>
+              <TouchableOpacity
+                style={{
+                  position: 'absolute',
+                  left: 8,
+                  top: 10,
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  // backgroundColor: '#F0F1F5',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  shadowColor: '#000',
+                  shadowOffset: {width: 0, height: 1},
+                  shadowOpacity: 0.08,
+                  shadowRadius: 2,
+                  zIndex: 2,
+                }}
+                onPress={closeContactsModal}
+                hitSlop={{top: 12, bottom: 12, left: 12, right: 12}}
+                activeOpacity={0.7}>
+                <Ionicons name="arrow-back" size={28} color={COLORS.primary} />
               </TouchableOpacity>
-            </View>
 
+              <Text
+                style={{
+                  fontSize: 23,
+                  fontWeight: 'bold',
+                  color: COLORS.primary,
+                  flex: 1,
+                  textAlign: 'center',
+                  letterSpacing: 0.2,
+                }}>
+                Select Workers
+              </Text>
+            </View>
+            <View
+              style={{
+                height: 1,
+                backgroundColor: '#E0E3EB',
+                marginHorizontal: 16,
+                marginBottom: 8,
+              }}
+            />
             {loading ? (
               <View style={styles.modalContactsLoadingContainer}>
                 <ActivityIndicator size="large" color={COLORS.primary} />
@@ -1280,20 +1577,61 @@ const DashboardScreen = () => {
           <View style={styles.workerListModalContainer}>
             <View style={styles.workerListModalContent}>
               <View style={styles.workerListModalHeader}>
-                <Text style={styles.workerListModalTitle}>Workers List</Text>
                 <TouchableOpacity
-                  style={styles.workerListCloseButton}
-                  onPress={closeWorkersModal}>
-                  <Text style={styles.workerListCloseButtonText}>Close</Text>
+                  style={{
+                    position: 'absolute',
+                    left: 2,
+                    top: 1,
+                    width: 40,
+                    height: 40,
+                    borderRadius: 20,
+                    // backgroundColor: '#F0F1F5',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    shadowColor: '#000',
+                    shadowOffset: {width: 0, height: 1},
+                    shadowOpacity: 0.08,
+                    shadowRadius: 2,
+                    zIndex: 2,
+                  }}
+                  onPress={closeWorkersModal}
+                  hitSlop={{top: 12, bottom: 12, left: 12, right: 12}}
+                  activeOpacity={0.7}>
+                  <Ionicons
+                    name="arrow-back"
+                    size={28}
+                    color={COLORS.primary}
+                  />
                 </TouchableOpacity>
+                <Text style={styles.workerListModalTitle}>Workers List</Text>
               </View>
-              <View>
-                <TextInput
-                  placeholder="Search Workers..."
-                  placeholderTextColor="#555"
-                  value={searchText}
-                  onChangeText={text => dispatch(setSearchText(text))}
-                  style={styles.workerListModalSearch}></TextInput>
+              <View style={{paddingBottom: 8, backgroundColor: '#fff'}}>
+                <View style={{position: 'relative', justifyContent: 'center'}}>
+                  <Ionicons
+                    name="search"
+                    size={20}
+                    color="#A0AEC0"
+                    style={{
+                      position: 'absolute',
+                      left: 16,
+                      top: '50%',
+                      zIndex: 2,
+                      marginTop: -16,
+                    }}
+                  />
+                  <TextInput
+                    placeholder="Search Workers..."
+                    placeholderTextColor="#555"
+                    value={searchText}
+                    onChangeText={text => dispatch(setSearchText(text))}
+                    style={{
+                      ...styles.workerListModalSearch,
+                      paddingLeft: 40,
+                    }}
+                    returnKeyType="search"
+                    clearButtonMode="while-editing"
+                  />
+                </View>
               </View>
 
               {loading || isReduxLoading ? (
@@ -1324,137 +1662,399 @@ const DashboardScreen = () => {
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={styles.scheduleModalOverlay}>
             <View style={styles.scheduleModalContainer}>
-              <Text style={styles.heading}>Create a Schedule</Text>
+              <ScrollView
+                contentContainerStyle={{paddingBottom: 120}}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}>
+                <Text style={styles.heading}>Create a Schedule</Text>
 
-              <TouchableOpacity
-                disabled={slots.length > 0}
-                style={styles.scheduleDateTimeInputContainer}
-                onPress={() => setShowDatePicker(true)}>
-                <Text style={styles.scheduleDateTimeInput}>
-                  {scheduleDate
-                    ? `Date: ${formatDate(scheduleDate)}`
-                    : 'Enter Date'}
-                </Text>
-              </TouchableOpacity>
-              {showDatePicker && (
-                <DateTimePicker
-                  value={scheduleDate || new Date()}
-                  mode="date"
-                  display="default"
-                  onChange={(event, selectedDate) => {
-                    setShowDatePicker(false);
-                    if (selectedDate) setScheduleDate(selectedDate);
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    marginBottom: 18,
+                  }}>
+                  <Ionicons
+                    name="calendar-outline"
+                    size={25}
+                    color={COLORS.primary}
+                    style={{
+                      marginRight: 8,
+                      marginBottom: 12,
+                      alignSelf: 'center',
+                    }}
+                  />
+                  <TouchableOpacity
+                    disabled={slots.length > 0}
+                    style={[
+                      styles.scheduleDateTimeInput,
+                      {
+                        flex: 1,
+                        borderRadius: 12,
+                        paddingVertical: 16,
+                        backgroundColor: '#F6F8FB',
+                        borderColor: '#C7D3E3',
+                        borderWidth: 1.2,
+                        paddingHorizontal: 18,
+                        fontSize: 17,
+                        color: '#222',
+                      },
+                    ]}
+                    onPress={() => setShowDatePicker(true)}>
+                    <Text
+                      style={{
+                        fontSize: 17,
+                        color: scheduleDate ? '#222' : '#999',
+                      }}>
+                      {scheduleDate
+                        ? `Date: ${formatDate(scheduleDate)}`
+                        : 'Enter Date'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                {showDatePicker && (
+                  <DateTimePicker
+                    value={scheduleDate || new Date()}
+                    mode="date"
+                    display="default"
+                    onChange={(event, selectedDate) => {
+                      setShowDatePicker(false);
+                      if (selectedDate) setScheduleDate(selectedDate);
+                    }}
+                  />
+                )}
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    marginBottom: 8,
+                  }}>
+                  <Ionicons
+                    name="time-outline"
+                    size={25}
+                    color={COLORS.primary}
+                    style={{
+                      marginRight: 8,
+                      marginBottom: 12,
+                      alignSelf: 'center',
+                    }}
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowTimePicker(true)}
+                    style={[
+                      styles.scheduleDateTimeInput,
+                      {
+                        flex: 1,
+                        borderRadius: 12,
+                        paddingVertical: 16,
+                        backgroundColor: '#F6F8FB',
+                        borderColor: '#C7D3E3',
+                        borderWidth: 1.2,
+                        paddingHorizontal: 18,
+                        fontSize: 17,
+                        color: '#222',
+                      },
+                    ]}>
+                    <Text
+                      style={{
+                        fontSize: 17,
+                        color: startTime ? '#222' : '#999',
+                      }}>
+                      {startTime
+                        ? `${formatTime(startTime)}`
+                        : 'Enter Start Time'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                {showTimePicker && (
+                  <DateTimePicker
+                    value={startTime || new Date()}
+                    mode="time"
+                    is24Hour={false}
+                    display="default"
+                    onChange={(event, selectedTime) => {
+                      setShowTimePicker(false);
+                      if (selectedTime) setStartTime(selectedTime);
+                    }}
+                  />
+                )}
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    marginBottom: 8,
+                  }}>
+                  <Ionicons
+                    name="location-outline"
+                    size={25}
+                    color={COLORS.primary}
+                    style={{
+                      marginRight: 8,
+                      marginBottom: 12,
+                      alignSelf: 'center',
+                    }}
+                  />
+                  <TextInput
+                    style={[
+                      styles.scheduleInput,
+                      {
+                        flex: 1,
+                        backgroundColor: '#F6F8FB',
+                        borderColor: '#C7D3E3',
+                        borderWidth: 1.2,
+                        borderRadius: 12,
+                        paddingVertical: 16,
+                        paddingHorizontal: 18,
+                        fontSize: 17,
+                        color: '#222',
+                      },
+                    ]}
+                    placeholder="Location"
+                    placeholderTextColor={'#999'}
+                    value={location}
+                    onChangeText={setLocation}
+                  />
+                </View>
+
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    marginBottom: 18,
+                  }}>
+                  <Ionicons
+                    name="chatbubble-ellipses-outline"
+                    size={25}
+                    color={COLORS.primary}
+                    style={{marginRight: 8, alignSelf: 'center'}}
+                  />
+                  <TextInput
+                    style={[
+                      styles.scheduleInput,
+                      {
+                        flex: 1,
+                        backgroundColor: '#F6F8FB',
+                        borderColor: '#C7D3E3',
+                        borderWidth: 1.2,
+                        borderRadius: 12,
+                        paddingVertical: 16,
+                        paddingHorizontal: 18,
+                        fontSize: 17,
+                        color: '#222',
+                        minHeight: 48,
+                      },
+                    ]}
+                    placeholder="Message"
+                    placeholderTextColor={'#999'}
+                    value={message}
+                    onChangeText={setMessage}
+                    multiline
+                  />
+                </View>
+
+                <TouchableOpacity
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    alignSelf: 'flex-end',
+                    backgroundColor: COLORS.primary,
+                    borderRadius: 10,
+                    paddingVertical: 10,
+                    paddingHorizontal: 15,
+                    marginBottom: 18,
                   }}
-                />
-              )}
+                  onPress={handleAddSlot}>
+                  <Ionicons
+                    name="add"
+                    size={20}
+                    fontWeight="bold"
+                    color="#fff"
+                    style={{marginRight: 8}}
+                  />
+                  <Text
+                    style={{color: '#fff', fontWeight: 'bold', fontSize: 15}}>
+                    Add Slot
+                  </Text>
+                </TouchableOpacity>
 
-              <Text style={styles.subHeading}>Add Time Slot</Text>
-
-              <TouchableOpacity onPress={() => setShowTimePicker(true)}>
-                <Text style={styles.scheduleDateTimeInput}>
-                  {startTime ? `${formatTime(startTime)}` : 'Enter Start Time'}
-                </Text>
-              </TouchableOpacity>
-              {showTimePicker && (
-                <DateTimePicker
-                  value={startTime || new Date()}
-                  mode="time"
-                  is24Hour={false}
-                  display="default"
-                  onChange={(event, selectedTime) => {
-                    setShowTimePicker(false);
-                    if (selectedTime) setStartTime(selectedTime);
-                  }}
-                />
-              )}
-
-              <TextInput
-                style={styles.scheduleInput}
-                placeholder="Location"
-                placeholderTextColor={'#555'}
-                value={location}
-                onChangeText={setLocation}
-              />
-
-              <TextInput
-                style={styles.scheduleInput}
-                placeholder="Message"
-                placeholderTextColor={'#555'}
-                value={message}
-                onChangeText={setMessage}
-              />
-
-              <TouchableOpacity
-                style={styles.addButton}
-                onPress={handleAddSlot}>
-                <Text style={styles.addButtonText}>+ Add Slot</Text>
-              </TouchableOpacity>
-              <ScrollView>
-                {slots.length == 0 ? (
+                {slots.length === 0 ? (
                   <View style={styles.timeSlotsNotCreated}>
                     <Text style={styles.timeSlotsNotCreatedText}>
-                      No time slots created yet..
+                      You haven't added any slots yet.
                     </Text>
                   </View>
                 ) : (
-                  slots.length > 0 && (
-                    <View style={styles.slotList}>
-                      {slots
-                        .sort((a, b) => {
-                          const parseTime = timeStr =>
-                            new Date(`1970-01-01T${convertTo24Hour(timeStr)}`);
-
-                          return (
-                            parseTime(a.startTime) - parseTime(b.startTime)
-                          );
-                        })
-                        .map((slot, index) => (
-                          <View key={index} style={styles.slotItem}>
-                            <View>
-                              <Text style={styles.slotText}>
-                                Time - {slot.startTime}
-                              </Text>
+                  <View style={{gap: 10, marginBottom: 18}}>
+                    {slots
+                      .sort((a, b) => {
+                        const parseTime = timeStr =>
+                          new Date(`1970-01-01T${convertTo24Hour(timeStr)}`);
+                        return parseTime(a.startTime) - parseTime(b.startTime);
+                      })
+                      .map((slot, index) => (
+                        <View
+                          key={index}
+                          style={{
+                            backgroundColor: '#fff',
+                            borderRadius: 10,
+                            borderColor: '#E0E3EB',
+                            borderWidth: 1,
+                            paddingVertical: 12,
+                            paddingHorizontal: 14,
+                            shadowColor: '#A0AEC0',
+                            shadowOffset: {width: 0, height: 1},
+                            shadowOpacity: 0.06,
+                            shadowRadius: 2,
+                            marginBottom: 2,
+                          }}>
+                          <Text
+                            style={{
+                              color: COLORS.primary,
+                              fontWeight: 'bold',
+                              fontSize: 16,
+                              marginBottom: 2,
+                            }}>
+                            {slot.startTime}
+                          </Text>
+                          <Text
+                            style={{
+                              fontSize: 15,
+                              color: '#333',
+                              marginBottom: 1,
+                            }}>
+                            <Text style={{fontWeight: '600'}}>Location:</Text>{' '}
+                            {slot.location}
+                          </Text>
+                          <Text
+                            style={{fontSize: 15, color: '#555'}}
+                            numberOfLines={
+                              expandedSlotIndex === index ? undefined : 2
+                            }
+                            ellipsizeMode="tail">
+                            <Text style={{fontWeight: '600'}}>Message:</Text>{' '}
+                            {slot.message}
+                          </Text>
+                          {slot.message &&
+                            slot.message.length > 60 &&
+                            expandedSlotIndex !== index && (
+                              <TouchableOpacity
+                                onPress={() => setExpandedSlotIndex(index)}>
+                                <Text
+                                  style={{
+                                    color: COLORS.primary,
+                                    fontWeight: 'bold',
+                                    fontSize: 14,
+                                    marginTop: 2,
+                                  }}>
+                                  More
+                                </Text>
+                              </TouchableOpacity>
+                            )}
+                          {expandedSlotIndex === index && (
+                            <TouchableOpacity
+                              onPress={() => setExpandedSlotIndex(null)}>
                               <Text
-                                style={styles.slotText}
-                                numberOfLines={2}
-                                ellipsizeMode="tail">
-                                Location - {slot.location}
+                                style={{
+                                  color: COLORS.primary,
+                                  fontWeight: 'bold',
+                                  fontSize: 14,
+                                  marginTop: 2,
+                                }}>
+                                Less
                               </Text>
-                              <Text
-                                style={styles.slotText}
-                                numberOfLines={2}
-                                ellipsizeMode="tail">
-                                Message - {slot.message}
-                              </Text>
-                            </View>
-                            {/* <TouchableOpacity style={styles.removeSlotButton}>
-                            <Text style={styles.removeSlotButtonText}>X</Text>
-                          </TouchableOpacity> */}
-                          </View>
-                        ))}
-                    </View>
-                  )
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      ))}
+                  </View>
                 )}
               </ScrollView>
 
-              <View style={styles.scheduleModalOptions}>
-                <TouchableOpacity
-                  style={styles.cancelScheduleButton}
-                  onPress={closeScheduleModal}>
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.submitButton}
-                  onPress={handleSchedule}>
-                  <Text style={styles.submitButtonText}>
-                    {loading ? 'Saving...' : 'Save Schedule'}
-                  </Text>
-                </TouchableOpacity>
+              <View
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  backgroundColor: '#F7F7FF',
+                  paddingVertical: 16,
+                  paddingHorizontal: 24,
+                  shadowColor: '#000',
+                  shadowOffset: {width: 0, height: -2},
+                  shadowOpacity: 0.06,
+                  shadowRadius: 4,
+                  zIndex: 10,
+                }}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    gap: 12,
+                  }}>
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: COLORS.primaryLight,
+                      borderRadius: 10,
+                      paddingVertical: 12,
+                      paddingHorizontal: 18,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderColor: '#E0E3EB',
+                      borderWidth: 1,
+                      flex: 1,
+                    }}
+                    onPress={closeScheduleModal}
+                    activeOpacity={0.7}>
+                    <Text
+                      style={{
+                        color: COLORS.text,
+                        fontWeight: 'bold',
+                        fontSize: 16,
+                        letterSpacing: 0.2,
+                      }}>
+                      Cancel
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: COLORS.primary,
+                      paddingVertical: 12,
+                      paddingHorizontal: 28,
+                      borderRadius: 10,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      shadowColor: COLORS.primary,
+                      shadowOffset: {width: 0, height: 2},
+                      shadowOpacity: 0.1,
+                      shadowRadius: 3,
+                      flex: 1,
+                    }}
+                    onPress={handleSchedule}
+                    activeOpacity={0.7}>
+                    <Text
+                      style={{
+                        color: '#fff',
+                        fontWeight: 'bold',
+                        fontSize: 16,
+                        letterSpacing: 0.2,
+                      }}>
+                      {loading ? 'Saving...' : 'Save Schedule'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           </KeyboardAvoidingView>
         </Modal>
       </View>
+      {loading && <LoadingOverlay />}
+      <CustomAlertModal
+        visible={alertModal.visible}
+        title={alertModal.title}
+        message={alertModal.message}
+        onClose={closeAlertModal}
+        actions={alertModal.actions}
+      />
     </SafeAreaView>
   );
 };
@@ -1551,8 +2151,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     paddingTop: 24,
-    backgroundColor: 'white',
-    elevation: 3,
+    backgroundColor: '#F9FAFC',
+    // elevation: 3,
     shadowColor: '#000',
     shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.1,
@@ -1585,13 +2185,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#F7F7FF',
     paddingHorizontal: 12,
     paddingTop: 8,
+    borderRadius: 12,
   },
 
   modalContactsItem: {
     padding: 16,
-    backgroundColor: 'white',
+    backgroundColor: COLORS.background,
     marginVertical: 4,
     borderRadius: 12,
+    borderWidth: 0.1,
+    // borderColor:COLORS.primaryDark,
     // elevation: 1,
     shadowColor: '#000',
     shadowOffset: {width: 0, height: 1},
@@ -1601,8 +2204,10 @@ const styles = StyleSheet.create({
 
   modalContactsSelectedItem: {
     backgroundColor: '#F5F2FF',
-    borderLeftWidth: 3,
-    borderLeftColor: '#635BFF',
+    borderLeftWidth: 5,
+    borderLeftColor: COLORS.primaryDark,
+    // borderRightWidth: 5,
+    // borderRightColor: '#635BFF',
     elevation: 1,
     shadowColor: '#635BFF',
     shadowOffset: {width: 0, height: 2},
@@ -1641,8 +2246,8 @@ const styles = StyleSheet.create({
   },
 
   modalContactsSelectionCount: {
-    fontSize: 15,
-    color: '#4B5563',
+    fontSize: 17,
+    color: COLORS.primary,
     fontWeight: '500',
   },
 
@@ -1858,8 +2463,8 @@ const styles = StyleSheet.create({
 
   workerListModalContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    // justifyContent: 'center',
+    // alignItems: 'center',
     backgroundColor: '#F7F7FF',
   },
   workerListModalContent: {
@@ -1869,22 +2474,23 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 10,
     // borderRadius: 10,
-    alignItems: 'flex-start',
+    // alignItems: 'center',
   },
   workerListModalHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between', // This spreads items to opposite ends
     alignItems: 'center',
-    width: '100%', // Ensure header takes full width
-    marginBottom: 8,
+    justifyContent: 'center',
+    width: '100%',
+    marginBottom: 24,
     // marginTop: 5,
-    paddingRight: 8, // Add some padding on the right
   },
   workerListModalTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 10,
-    color: '#635BFF',
+    color: COLORS.primary,
+    flex: 1,
+    textAlign: 'center',
+    letterSpacing: 0.2,
     alignSelf: 'center',
   },
   workerListCard: {
@@ -1925,7 +2531,7 @@ const styles = StyleSheet.create({
   workerListModalSearch: {
     borderWidth: 1,
     width: '430',
-    borderRadius: 20,
+    borderRadius: 16,
     marginBottom: 15,
     borderColor: '#635BFF',
     paddingHorizontal: 10,
@@ -1992,8 +2598,8 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFF',
     borderRadius: 16,
-    padding: 18,
-    marginVertical: 6,
+    padding: 20,
+    marginVertical: 10,
     marginHorizontal: 10,
     shadowColor: '#000',
     shadowOffset: {width: 0, height: 3},
@@ -2016,19 +2622,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     marginTop: 4,
+    gap: 8,
   },
   deleteButton: {
     backgroundColor: '#F56565',
     paddingVertical: 6,
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     borderRadius: 10,
   },
   sendButton: {
-    backgroundColor: '#5151F0',
+    backgroundColor: COLORS.primary,
     paddingVertical: 6,
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     borderRadius: 10,
-    marginHorizontal: 4,
   },
   buttonText: {
     color: '#fff',
@@ -2042,9 +2648,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    // marginTop: 100,
   },
   modalContainerm: {
-    width: '85%',
+    width: '95%',
+    // minHeight: '39%',
+    height: 'auto',
     backgroundColor: 'white',
     borderRadius: 12,
     padding: 20,
@@ -2058,17 +2667,21 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   modalTitlem: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 20,
     textAlign: 'center',
     color: '#333',
   },
   dateTimeInputContainerm: {
-    marginBottom: 15,
+    marginBottom: 20,
+    // width:2
   },
   datePickerButtonm: {
+    width: '90%',
     padding: 12,
+    marginBottom: 10,
+    // borderRightWidth: 3,
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
@@ -2079,27 +2692,33 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   inputm: {
+    width: '90%',
     borderWidth: 1,
     borderColor: '#ddd',
+    // borderRightWidth:3,
+    // borderLeftWidth:3,
+    // borderColor: COLORS.primaryDark,
     borderRadius: 8,
     padding: 12,
-    marginBottom: 15,
+    marginBottom: 20,
     fontSize: 16,
     backgroundColor: '#f9f9f9',
   },
   messageInputm: {
-    height: 100,
+    maxHeight: 100,
+    width: '90%',
     textAlignVertical: 'top',
   },
   modalButtonsm: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 10,
+    marginTop: 18,
   },
   modalButtonm: {
-    flex: 1,
+    width: '48%',
     paddingVertical: 12,
     borderRadius: 8,
+    borderWidth: 0.1,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2108,7 +2727,7 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   createButtonm: {
-    backgroundColor: '#635BFF',
+    backgroundColor: COLORS.primary,
     marginLeft: 10,
   },
   disabledButtonm: {
@@ -2116,10 +2735,12 @@ const styles = StyleSheet.create({
   },
   cancelButtonTextm: {
     color: '#666',
+    fontSize: 16,
     fontWeight: '600',
   },
   createButtonTextm: {
     color: 'white',
+    fontSize: 16,
     fontWeight: '600',
   },
   workerCard: {
@@ -2207,7 +2828,7 @@ const styles = StyleSheet.create({
     fontFamily: 'serif',
     fontStyle: 'italic',
     alignSelf: 'center',
-    paddingTop: 110,
+    paddingTop: 100,
     fontSize: 16,
   },
   slotList: {
@@ -2239,7 +2860,7 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     backgroundColor: '#635BFF',
-    paddingVertical: 8,
+    paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
     // marginTop: 8,
@@ -2252,8 +2873,8 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   cancelScheduleButton: {
-    backgroundColor: '#E0E0E0',
-    paddingVertical: 8,
+    backgroundColor: '#E0E3EB',
+    paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
     // marginTop: 8,
@@ -2261,8 +2882,21 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   cancelButtonText: {
-    color: '#333',
+    color: 'black',
     fontSize: 16,
     fontWeight: '500',
   },
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 300,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    color: '#A0AEC0',
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  modalCloseButton: {position: 'absolute', top: 12, right: 12, zIndex: 10},
 });

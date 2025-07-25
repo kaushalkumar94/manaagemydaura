@@ -49,7 +49,7 @@ export const deleteVisitThunk = createAsyncThunk(
   async (visitId, {rejectWithValue}) => {
     try {
       console.log('Visit deletion data:', visitId);
-      const response = await api.delete(`visits/delete/${visitId}`);
+      const response = await api.delete(`/visits/delete/${visitId}`);
       console.log('response:', response.data);
       return {message: response.data.message, deletedId: visitId};
     } catch (error) {
@@ -69,14 +69,16 @@ export const deleteVisitThunk = createAsyncThunk(
 
 export const sendVisitThunk = createAsyncThunk(
   'visits/send',
-  async ({visitId}, {rejectWithValue}) => {
+  async ({visitId, message, dateTime, location}, {rejectWithValue}) => {
     try {
-      const response = await api.post('/sms/sendwhatsappvisit', {visitId});
-      console.log('response:', response.data);
+      const response = await api.post('/sms/whatsapp', {
+        visitId,
+        message,
+        dateTime,
+        location,
+      });
       return response.data;
     } catch (error) {
-      console.error('Failed to send the visit', error.response?.data?.message);
-
       return rejectWithValue(
         error.response?.data?.message ||
           error.message ||
@@ -149,12 +151,21 @@ const visitSlice = createSlice({
         console.log('Message sent successfully');
         state.loading = false;
         state.error = null;
-
-        const sentVisitId = action.meta.arg.visitId;
-
-        const index = state.visits.findIndex(v => v.id === sentVisitId);
-        if (index !== -1) {
-          state.visits[index] = {...state.visits[index], isSent: true};
+      
+        // Use the updatedVisit from the backend if available
+        const updatedVisit = action.payload?.updatedVisit;
+        if (updatedVisit && updatedVisit.id) {
+          const index = state.visits.findIndex(v => v.id === updatedVisit.id);
+          if (index !== -1) {
+            state.visits[index] = { ...state.visits[index], ...updatedVisit };
+          }
+        } else {
+          // fallback: just set isSent true if backend didn't return updatedVisit
+          const sentVisitId = action.meta.arg.visitId;
+          const index = state.visits.findIndex(v => v.id === sentVisitId);
+          if (index !== -1) {
+            state.visits[index] = { ...state.visits[index], isSent: true };
+          }
         }
       })
       .addCase(sendVisitThunk.rejected, (state, action) => {

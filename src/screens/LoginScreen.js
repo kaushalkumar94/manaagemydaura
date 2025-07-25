@@ -11,14 +11,24 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   RefreshControl,
+  BackHandler,
 } from 'react-native';
 import api from '../api/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useDispatch, useSelector} from 'react-redux';
 import {loginUser} from '../redux/authSlice';
 import {setVisits} from '../redux/visitSlice';
+import { clearError, forceStopLoading } from '../redux/authSlice';
+import { Colors } from 'react-native/Libraries/NewAppScreen';
+import { useFocusEffect } from '@react-navigation/native';
+
 
 const LoginScreen = ({navigation}) => {
+
+  // useEffect(() => {
+  //   dispatch(forceStopLoading());
+  // }, []);
+  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -41,6 +51,17 @@ const LoginScreen = ({navigation}) => {
     }
   };
 
+  useFocusEffect(
+    React.useCallback(() => {
+      const onBackPress = () => {
+        BackHandler.exitApp();
+        return true;
+      };
+      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => subscription.remove();
+    }, [])
+  );
+
   const handleLogin = async () => {
     try {
       if (!email || !password) {
@@ -53,11 +74,18 @@ const LoginScreen = ({navigation}) => {
       }
       console.log('loginUser dispatched');
 
+      // timeoutId = setTimeout(() => {
+        // dispatch(clearError());
+        // Alert.alert('Login timeout', 'Login took too long. Please try again.');
+      // }, 10000);
+
       const userData = await dispatch(loginUser({email, password})).unwrap();
+      // clearTimeout(timeoutId);
       console.log('userData:', userData);
       dispatch(setVisits(userData.upcomingVisits));
       navigation.navigate('Dashboard');
     } catch (error) {
+      // clearTimeout(timeoutId);
       console.error('Login error:', error);
       Alert.alert('Login failed', error);
     }
@@ -115,18 +143,23 @@ const LoginScreen = ({navigation}) => {
         keyboardVerticalOffset={50}
         style={{flex: 1}}>
         <View style={styles.content}>
-          <Image
-            source={require('../assets/logo.png')}
-            style={styles.logo}></Image>
+          {/* Logo with shadow */}
+          <View style={styles.logoContainer}>
+            <Image
+              source={require('../assets/logo.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+          </View>
           <Text style={styles.title}>Access Account</Text>
-          <Text style={styles.subtitle}>Manage your visits efficiently.</Text>
+          <Text style={styles.subtitle}>Sign in to continue managing your visits efficiently.</Text>
 
           <View style={styles.inputWrapper}>
             <View style={styles.inputContainer}>
               <TextInput
                 style={styles.input}
-                placeholder="Your email address"
-                placeholderTextColor="#AAAAAA"
+                placeholder="Email address"
+                placeholderTextColor="#B0B6C3"
                 keyboardType="email-address"
                 autoCapitalize="none"
                 value={email}
@@ -143,8 +176,8 @@ const LoginScreen = ({navigation}) => {
             <View style={styles.inputContainer}>
               <TextInput
                 style={styles.input}
-                placeholder="Enter your password"
-                placeholderTextColor="#AAAAAA"
+                placeholder="Password"
+                placeholderTextColor="#B0B6C3"
                 secureTextEntry={!showPassword}
                 value={password}
                 onChangeText={setPassword}
@@ -161,12 +194,7 @@ const LoginScreen = ({navigation}) => {
             </View>
           </View>
 
-          <View style={styles.forgotPasswordContainer}>
-            <Text style={styles.forgotPasswordText}>Create an account?</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
-              <Text style={styles.forgotPassword}>Sign Up</Text>
-            </TouchableOpacity>
-          </View>
+          
 
           <TouchableOpacity
             style={[
@@ -181,85 +209,152 @@ const LoginScreen = ({navigation}) => {
               <Text style={styles.buttonText}>Log In</Text>
             )}
           </TouchableOpacity>
+
+          <View style={styles.forgotPasswordContainer}>
+            
+            <Text style={styles.forgotPasswordText}>Don't have an account?</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
+              <Text style={styles.forgotPassword}>Sign Up</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
 
+const COLORS = {
+  primary: '#635BFF',
+  primaryLight: '#F0EEFF',
+  primaryDark: '#4A44C9',
+  background: '#FFFFFF',
+  border: '#E8E8ED',
+  text: '#333333',
+  textSecondary: '#71717A',
+  selected: '#F0EEFF',
+  selectedBorder: '#635BFF',
+};
+
 const styles = StyleSheet.create({
-  container: {flex: 1, backgroundColor: '#FFFFFF'},
-  content: {
+  container: {
+    flex: 1, 
+    backgroundColor: '#F7F7FF'},
+    content: {
     flex: 1,
     paddingHorizontal: 25,
     paddingTop: 40,
     justifyContent: 'center',
   },
   title: {
-    fontSize: 30,
+    fontSize: 28,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 8,
+    color: '#222',
+    letterSpacing: 1,
+    fontFamily: Platform.OS === 'ios' ? 'AvenirNext-Bold' : 'Roboto',
+    marginBottom: 6,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#666666',
-    marginBottom: 30,
+    marginBottom: 32,
     textAlign: 'center',
+    fontFamily: Platform.OS === 'ios' ? 'AvenirNext-Regular' : 'Roboto',
+    fontStyle: 'italic',
+    letterSpacing: 0.5,
+    fontWeight: '400',
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 18,
+    shadowColor: '#635BFF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 8,
   },
   logo: {
-    width: 90,
-    height: 90,
-    marginBottom: 10,
-    // tintColor: '#635BFF',
-    alignSelf: 'center',
+    width: 110,
+    height: 110,
+    borderRadius: 24,
+    backgroundColor: '#fff',
   },
-  inputWrapper: {marginBottom: 15},
+  inputWrapper: {
+    marginBottom: 18
+  },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    borderRadius: 8,
-    paddingHorizontal: 15,
-    height: 50,
-    borderWidth: 1,
-    borderColor: '#F0F0F0',
+    backgroundColor: COLORS.primaryLight,
+    borderRadius: 12,
+
+    paddingHorizontal: 18,
+    height: 54,
+    borderLeftWidth: 3,
+    // borderRightWidth: 2,
+    borderColor: COLORS.primaryDark,
+    shadowColor: COLORS.primaryDark,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    // elevation: 1,
   },
   input: {
     flex: 1,
-    height: 50,
-    color: '#333333',
-    fontSize: 15,
+    height: 54,
+    color: '#222',
+    fontSize: 16,
+    backgroundColor:'transparent',
+    fontFamily: Platform.OS === 'ios' ? 'AvenirNext-Regular' : 'Roboto',
   },
   eyeIcon: {
-    width: 20,
-    height: 20,
+    width: 22,
+    height: 22,
     tintColor: '#888',
     marginLeft: 10,
   },
   errorText: {
     color: 'red',
-    fontSize: 12,
+    fontSize: 13,
     marginTop: 5,
+    fontFamily: Platform.OS === 'ios' ? 'AvenirNext-Regular' : 'Roboto',
+    fontStyle: 'italic',
+    letterSpacing: 0.2,
   },
   forgotPasswordContainer: {
     justifyContent: 'center',
-    marginBottom: 20,
     flexDirection: 'row',
   },
   forgotPasswordText: {
-    color: '#666666',
-    marginRight: 2,
+    color: '#666',
+    fontSize: 15,
+    fontFamily: Platform.OS === 'ios' ? 'AvenirNext-Regular' : 'Roboto',
+    fontStyle:'italic',
+    marginRight: 4,
   },
-  forgotPassword: {color: '#5151F0', fontSize: 14},
+  forgotPassword: {
+    color: '#5151F0',
+    fontWeight:'bold' ,
+    fontSize: 14
+  },
   loginButton: {
     backgroundColor: '#5151F0',
     height: 50,
+    width:'95%',
     borderRadius: 10,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignSelf: 'center',
+    marginTop:15,
+    marginBottom:10
   },
-  buttonText: {color: '#FFFFFF', fontSize: 16, fontWeight: '800'},
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+    alignSelf:'center',
+    fontFamily: Platform.OS === 'ios' ? 'AvenirNext-Bold' : 'Roboto',
+    letterSpacing: 0.5,
+  },
 });
 
 export default LoginScreen;
