@@ -14,7 +14,7 @@ import {
   ScrollView,
   BackHandler,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import {useFocusEffect} from '@react-navigation/native';
 import api from '../api/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -35,9 +35,12 @@ const SignupScreen = ({navigation}) => {
         BackHandler.exitApp();
         return true;
       };
-      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      const subscription = BackHandler.addEventListener(
+        'hardwareBackPress',
+        onBackPress,
+      );
       return () => subscription.remove();
-    }, [])
+    }, []),
   );
 
   const validateEmail = text => {
@@ -317,7 +320,7 @@ const styles = StyleSheet.create({
     width: 110,
     height: 110,
     borderRadius: 24,
-    backgroundColor: '#fff',
+    backgroundColor: '#F7F7FF',
   },
   title: {
     fontSize: 28,

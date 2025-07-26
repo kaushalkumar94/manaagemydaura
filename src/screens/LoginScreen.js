@@ -18,17 +18,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useDispatch, useSelector} from 'react-redux';
 import {loginUser} from '../redux/authSlice';
 import {setVisits} from '../redux/visitSlice';
-import { clearError, forceStopLoading } from '../redux/authSlice';
-import { Colors } from 'react-native/Libraries/NewAppScreen';
-import { useFocusEffect } from '@react-navigation/native';
-
+import {clearError, forceStopLoading} from '../redux/authSlice';
+import {Colors} from 'react-native/Libraries/NewAppScreen';
+import {useFocusEffect} from '@react-navigation/native';
 
 const LoginScreen = ({navigation}) => {
-
   // useEffect(() => {
   //   dispatch(forceStopLoading());
   // }, []);
-  
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -57,9 +55,12 @@ const LoginScreen = ({navigation}) => {
         BackHandler.exitApp();
         return true;
       };
-      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      const subscription = BackHandler.addEventListener(
+        'hardwareBackPress',
+        onBackPress,
+      );
       return () => subscription.remove();
-    }, [])
+    }, []),
   );
 
   const handleLogin = async () => {
@@ -75,8 +76,8 @@ const LoginScreen = ({navigation}) => {
       console.log('loginUser dispatched');
 
       // timeoutId = setTimeout(() => {
-        // dispatch(clearError());
-        // Alert.alert('Login timeout', 'Login took too long. Please try again.');
+      // dispatch(clearError());
+      // Alert.alert('Login timeout', 'Login took too long. Please try again.');
       // }, 10000);
 
       const userData = await dispatch(loginUser({email, password})).unwrap();
@@ -152,7 +153,9 @@ const LoginScreen = ({navigation}) => {
             />
           </View>
           <Text style={styles.title}>Access Account</Text>
-          <Text style={styles.subtitle}>Sign in to continue managing your visits efficiently.</Text>
+          <Text style={styles.subtitle}>
+            Sign in to continue managing your visits efficiently.
+          </Text>
 
           <View style={styles.inputWrapper}>
             <View style={styles.inputContainer}>
@@ -194,8 +197,6 @@ const LoginScreen = ({navigation}) => {
             </View>
           </View>
 
-          
-
           <TouchableOpacity
             style={[
               styles.loginButton,
@@ -211,8 +212,9 @@ const LoginScreen = ({navigation}) => {
           </TouchableOpacity>
 
           <View style={styles.forgotPasswordContainer}>
-            
-            <Text style={styles.forgotPasswordText}>Don't have an account?</Text>
+            <Text style={styles.forgotPasswordText}>
+              Don't have an account?
+            </Text>
             <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
               <Text style={styles.forgotPassword}>Sign Up</Text>
             </TouchableOpacity>
@@ -237,9 +239,10 @@ const COLORS = {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1, 
-    backgroundColor: '#F7F7FF'},
-    content: {
+    flex: 1,
+    backgroundColor: '#F7F7FF',
+  },
+  content: {
     flex: 1,
     paddingHorizontal: 25,
     paddingTop: 40,
@@ -268,7 +271,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 18,
     shadowColor: '#635BFF',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: {width: 0, height: 4},
     shadowOpacity: 0.12,
     shadowRadius: 16,
     elevation: 8,
@@ -277,10 +280,10 @@ const styles = StyleSheet.create({
     width: 110,
     height: 110,
     borderRadius: 24,
-    backgroundColor: '#fff',
+    backgroundColor: '#F7F7FF',
   },
   inputWrapper: {
-    marginBottom: 18
+    marginBottom: 18,
   },
   inputContainer: {
     flexDirection: 'row',
@@ -294,7 +297,7 @@ const styles = StyleSheet.create({
     // borderRightWidth: 2,
     borderColor: COLORS.primaryDark,
     shadowColor: COLORS.primaryDark,
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.06,
     shadowRadius: 4,
     // elevation: 1,
@@ -304,7 +307,7 @@ const styles = StyleSheet.create({
     height: 54,
     color: '#222',
     fontSize: 16,
-    backgroundColor:'transparent',
+    backgroundColor: 'transparent',
     fontFamily: Platform.OS === 'ios' ? 'AvenirNext-Regular' : 'Roboto',
   },
   eyeIcon: {
@@ -327,31 +330,31 @@ const styles = StyleSheet.create({
   },
   forgotPasswordText: {
     color: '#666',
-    fontSize: 15,
-    fontFamily: Platform.OS === 'ios' ? 'AvenirNext-Regular' : 'Roboto',
-    fontStyle:'italic',
-    marginRight: 4,
+    fontSize: 14,
+    // fontFamily: Platform.OS === 'ios' ? 'AvenirNext-Regular' : 'Roboto',
+    // fontStyle: 'italic',
+    marginRight: 1,
   },
   forgotPassword: {
     color: '#5151F0',
-    fontWeight:'bold' ,
-    fontSize: 14
+    fontWeight: 'bold',
+    fontSize: 14,
   },
   loginButton: {
     backgroundColor: '#5151F0',
     height: 50,
-    width:'95%',
+    width: '95%',
     borderRadius: 10,
     justifyContent: 'center',
     alignSelf: 'center',
-    marginTop:15,
-    marginBottom:10
+    marginTop: 15,
+    marginBottom: 10,
   },
   buttonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '800',
-    alignSelf:'center',
+    alignSelf: 'center',
     fontFamily: Platform.OS === 'ios' ? 'AvenirNext-Bold' : 'Roboto',
     letterSpacing: 0.5,
   },

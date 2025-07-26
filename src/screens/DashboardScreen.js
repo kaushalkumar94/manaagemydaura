@@ -27,7 +27,11 @@ import moment from 'moment-timezone';
 import api from '../api/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {useNavigation, CommonActions, useFocusEffect} from '@react-navigation/native';
+import {
+  useNavigation,
+  CommonActions,
+  useFocusEffect,
+} from '@react-navigation/native';
 import {logoutUser} from '../redux/authSlice';
 import * as Keychain from 'react-native-keychain';
 import {useDispatch, useSelector} from 'react-redux';
@@ -318,9 +322,12 @@ const DashboardScreen = () => {
         BackHandler.exitApp();
         return true;
       };
-      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      const subscription = BackHandler.addEventListener(
+        'hardwareBackPress',
+        onBackPress,
+      );
       return () => subscription.remove();
-    }, [])
+    }, []),
   );
 
   const showMode = () => {
@@ -595,11 +602,10 @@ const DashboardScreen = () => {
             try {
               const resultAction = await dispatch(
                 sendVisitThunk({
-                     visitId: visit.id, 
+                  visitId: visit.id,
                   message: visit.message,
                   dateTime: visit.dateTime,
                   location: visit.location,
-
                 }),
               );
               if (sendVisitThunk.fulfilled.match(resultAction)) {
@@ -1016,21 +1022,18 @@ const DashboardScreen = () => {
   };
 
   const handleScheduleSend = schedule => {
-   
     dispatch(
       sendScheduleWhatsApp({
         scheduleId: schedule.id,
         date: schedule.date,
-        slots: schedule.slots, 
+        slots: schedule.slots,
       }),
     )
       .unwrap()
       .then(() => {
-      
         showAlertModal('Success', 'Schedule sent via WhatsApp!');
       })
       .catch(error => {
-       
         showAlertModal('Error', error?.message || 'Failed to send schedule.');
       });
   };
@@ -1117,8 +1120,14 @@ const DashboardScreen = () => {
                         closeAlertModal();
                         handleScheduleSend(schedule);
                         setTimeout(() => {
-                          const updated = schedules.find(s => s.id === schedule.id);
-                          console.log('After send, schedule.isSent:', updated?.isSent, updated);
+                          const updated = schedules.find(
+                            s => s.id === schedule.id,
+                          );
+                          console.log(
+                            'After send, schedule.isSent:',
+                            updated?.isSent,
+                            updated,
+                          );
                         }, 1500);
                       },
                     },
@@ -1194,7 +1203,11 @@ const DashboardScreen = () => {
                     sendVisit(item);
                     setTimeout(() => {
                       const updated = visitsFetched.find(v => v.id === item.id);
-                      console.log('After send, visit.isSent:', updated?.isSent, updated);
+                      console.log(
+                        'After send, visit.isSent:',
+                        updated?.isSent,
+                        updated,
+                      );
                     }, 1500);
                   }}>
                   <Text style={styles.buttonText}>Send</Text>
@@ -1676,7 +1689,7 @@ const DashboardScreen = () => {
                   }}>
                   <Ionicons
                     name="calendar-outline"
-                    size={25}
+                    size={24}
                     color={COLORS.primary}
                     style={{
                       marginRight: 8,
@@ -1731,7 +1744,7 @@ const DashboardScreen = () => {
                   }}>
                   <Ionicons
                     name="time-outline"
-                    size={25}
+                    size={24}
                     color={COLORS.primary}
                     style={{
                       marginRight: 8,
@@ -1786,7 +1799,7 @@ const DashboardScreen = () => {
                   }}>
                   <Ionicons
                     name="location-outline"
-                    size={25}
+                    size={24}
                     color={COLORS.primary}
                     style={{
                       marginRight: 8,
@@ -1824,7 +1837,7 @@ const DashboardScreen = () => {
                   }}>
                   <Ionicons
                     name="chatbubble-ellipses-outline"
-                    size={25}
+                    size={24}
                     color={COLORS.primary}
                     style={{marginRight: 8, alignSelf: 'center'}}
                   />
@@ -1859,8 +1872,8 @@ const DashboardScreen = () => {
                     alignSelf: 'flex-end',
                     backgroundColor: COLORS.primary,
                     borderRadius: 10,
-                    paddingVertical: 10,
-                    paddingHorizontal: 15,
+                    paddingVertical: 8,
+                    paddingHorizontal: 14,
                     marginBottom: 18,
                   }}
                   onPress={handleAddSlot}>
@@ -1872,7 +1885,7 @@ const DashboardScreen = () => {
                     style={{marginRight: 8}}
                   />
                   <Text
-                    style={{color: '#fff', fontWeight: 'bold', fontSize: 15}}>
+                    style={{color: '#fff', fontWeight: 'bold', fontSize: 14}}>
                     Add Slot
                   </Text>
                 </TouchableOpacity>
@@ -1995,7 +2008,7 @@ const DashboardScreen = () => {
                     style={{
                       backgroundColor: COLORS.primaryLight,
                       borderRadius: 10,
-                      paddingVertical: 12,
+                      paddingVertical: 10,
                       paddingHorizontal: 18,
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -2009,7 +2022,7 @@ const DashboardScreen = () => {
                       style={{
                         color: COLORS.text,
                         fontWeight: 'bold',
-                        fontSize: 16,
+                        fontSize: 14,
                         letterSpacing: 0.2,
                       }}>
                       Cancel
@@ -2018,7 +2031,7 @@ const DashboardScreen = () => {
                   <TouchableOpacity
                     style={{
                       backgroundColor: COLORS.primary,
-                      paddingVertical: 12,
+                      paddingVertical: 8,
                       paddingHorizontal: 28,
                       borderRadius: 10,
                       alignItems: 'center',
@@ -2035,8 +2048,8 @@ const DashboardScreen = () => {
                       style={{
                         color: '#fff',
                         fontWeight: 'bold',
-                        fontSize: 16,
-                        letterSpacing: 0.2,
+                        fontSize: 14,
+                        // letterSpacing: 0.2,
                       }}>
                       {loading ? 'Saving...' : 'Save Schedule'}
                     </Text>
@@ -2288,6 +2301,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'white',
     paddingVertical: 2,
+    paddingTop: 3,
   },
   headerLogo: {
     width: '60%',
@@ -2530,12 +2544,13 @@ const styles = StyleSheet.create({
   },
   workerListModalSearch: {
     borderWidth: 1,
-    width: '430',
+    width: '100%',
     borderRadius: 16,
     marginBottom: 15,
     borderColor: '#635BFF',
     paddingHorizontal: 10,
     color: '#555',
+    // alignSelf:''
   },
   modalTitle: {
     fontSize: 24,
@@ -2724,7 +2739,7 @@ const styles = StyleSheet.create({
   },
   cancelButtonm: {
     backgroundColor: '#f2f2f2',
-    marginRight: 10,
+    // marginRight:,
   },
   createButtonm: {
     backgroundColor: COLORS.primary,

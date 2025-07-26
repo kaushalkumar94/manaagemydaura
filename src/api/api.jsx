@@ -4,18 +4,17 @@ import * as Keychain from 'react-native-keychain';
 // You might need to import navigation actions if you want to automatically redirect to login
 // import { CommonActions } from '@react-navigation/native'; // Example: for React Navigation v5/6
 
-
 let navigateToLoginHandler = null;
 
 // Function to set the navigation handler from your main App component
-export const setNavigationHandler = (handler) => {
-    navigateToLoginHandler = handler;
+export const setNavigationHandler = handler => {
+  navigateToLoginHandler = handler;
 };
-
 
 // Create an Axios instance
 const api = axios.create({
-  baseURL: 'http://10.0.2.2:3000/api', // Use your appropriate base URL
+  baseURL: 'https://managemydaura-2.onrender.com/api', // Use your appropriate base URL
+  // baseURL: 'http://10.0.2.2:3000/api',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -130,7 +129,7 @@ api.interceptors.response.use(
         Alert.alert('Session Expired', 'Please log in again.');
         if (navigateToLoginHandler) {
           navigateToLoginHandler(); // Trigger navigation to LoginScreen
-          }
+        }
         return Promise.reject(error); // Propagate the original error
       } finally {
         isRefreshing = false; // Reset the refreshing flag regardless of outcome
@@ -157,7 +156,8 @@ const refreshAccessToken = async () => {
     const currentRefreshToken = credentials.password; // This is the refresh token to send to backend
     // Use plain axios here to prevent infinite recursion with the interceptor
     const response = await axios.post(
-      'http://10.0.2.2:3000/api/auth/refresh', // Ensure this is your backend refresh endpoint
+      'https://managemydaura-2.onrender.com/api/auth/refresh', // Ensure this is your backend refresh endpoint
+      // 'http://10.0.2.2:3000/api/auth/refresh',
       {refreshToken: currentRefreshToken}, // Send the current refresh token in the body
       {
         headers: {
