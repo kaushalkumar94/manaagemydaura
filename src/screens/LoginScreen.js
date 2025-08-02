@@ -211,14 +211,14 @@ const LoginScreen = ({navigation}) => {
             )}
           </TouchableOpacity>
 
-          <View style={styles.forgotPasswordContainer}>
+          {/* <View style={styles.forgotPasswordContainer}>
             <Text style={styles.forgotPasswordText}>
               Don't have an account?
             </Text>
             <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
               <Text style={styles.forgotPassword}>Sign Up</Text>
             </TouchableOpacity>
-          </View>
+          </View> */}
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

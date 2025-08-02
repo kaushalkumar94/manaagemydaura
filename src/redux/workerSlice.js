@@ -1,7 +1,6 @@
 import {createAsyncThunk, createSlice, createSelector} from '@reduxjs/toolkit';
 import api from '../api/api';
 
-// Async thunk to fetch workers
 export const fetchWorkersThunk = createAsyncThunk(
   'workers/list',
   async (_, {rejectWithValue}) => {
@@ -25,7 +24,6 @@ export const fetchWorkersThunk = createAsyncThunk(
   },
 );
 
-// Worker slice
 const workerSlice = createSlice({
   name: 'worker',
   initialState: {

@@ -1,4 +1,3 @@
-//launch screen
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, {useState, useEffect, useRef} from 'react';
 import {
@@ -24,16 +23,15 @@ const LaunchScreen = ({navigation}) => {
     fadeAnim.setValue(0);
     Animated.timing(fadeAnim, {
       toValue: 1,
-      duration: 500, // Smooth fade-in effect
+      duration: 500,
       useNativeDriver: true,
     }).start();
   };
 
   useEffect(() => {
-    // Handle back button press
     const backAction = () => {
-      BackHandler.exitApp(); // Close the app
-      return true; // Prevent default behavior
+      BackHandler.exitApp();
+      return true;
     };
 
     const backHandler = BackHandler.addEventListener(
@@ -41,7 +39,6 @@ const LaunchScreen = ({navigation}) => {
       backAction,
     );
 
-    // Check login status
     const checkLoginStatus = async () => {
       const accessToken = await AsyncStorage.getItem('accessToken');
       setIsLoggedIn(!!accessToken);
@@ -53,7 +50,7 @@ const LaunchScreen = ({navigation}) => {
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
-      startAnimation(); // Restart animation when screen is focused
+      startAnimation();
     });
 
     return unsubscribe;

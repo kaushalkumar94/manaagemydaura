@@ -609,7 +609,6 @@ const DashboardScreen = () => {
                 }),
               );
               if (sendVisitThunk.fulfilled.match(resultAction)) {
-                // Remove setVisitList, rely on Redux state for UI update
                 showAlertModal('Success', 'Visit details sent successfully!');
               } else {
                 throw new Error(
@@ -1366,7 +1365,12 @@ const DashboardScreen = () => {
                         minimumDate={new Date()}
                       />
                     )}
-                    <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        width: '100%',
+                      }}>
                       <Ionicons
                         name="location-outline"
                         size={26}
@@ -1379,13 +1383,18 @@ const DashboardScreen = () => {
                       />
                       <TextInput
                         placeholder="Location"
-                        placeholderTextColor="grey"
+                        placeholderTextColor="#111"
                         value={location}
                         onChangeText={setLocation}
                         style={styles.inputm}
                       />
                     </View>
-                    <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        width: '100%',
+                      }}>
                       <Ionicons
                         name="chatbubble-ellipses-outline"
                         size={24}
@@ -1398,7 +1407,7 @@ const DashboardScreen = () => {
                       />
                       <TextInput
                         placeholder="Message"
-                        placeholderTextColor="grey"
+                        placeholderTextColor="#111"
                         value={message}
                         onChangeText={setMessage}
                         multiline={true}
@@ -1593,7 +1602,7 @@ const DashboardScreen = () => {
                 <TouchableOpacity
                   style={{
                     position: 'absolute',
-                    left: 2,
+                    left: 1,
                     top: 1,
                     width: 40,
                     height: 40,
@@ -1622,11 +1631,11 @@ const DashboardScreen = () => {
                 <View style={{position: 'relative', justifyContent: 'center'}}>
                   <Ionicons
                     name="search"
-                    size={20}
+                    size={18}
                     color="#A0AEC0"
                     style={{
                       position: 'absolute',
-                      left: 16,
+                      left: 11,
                       top: '50%',
                       zIndex: 2,
                       marginTop: -16,
@@ -1639,7 +1648,7 @@ const DashboardScreen = () => {
                     onChangeText={text => dispatch(setSearchText(text))}
                     style={{
                       ...styles.workerListModalSearch,
-                      paddingLeft: 40,
+                      paddingLeft: 35,
                     }}
                     returnKeyType="search"
                     clearButtonMode="while-editing"
@@ -2549,6 +2558,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     borderColor: '#635BFF',
     paddingHorizontal: 10,
+    alignSelf: 'center',
     color: '#555',
     // alignSelf:''
   },
@@ -2666,7 +2676,7 @@ const styles = StyleSheet.create({
     // marginTop: 100,
   },
   modalContainerm: {
-    width: '95%',
+    width: '94%',
     // minHeight: '39%',
     height: 'auto',
     backgroundColor: 'white',
@@ -2690,7 +2700,7 @@ const styles = StyleSheet.create({
   },
   dateTimeInputContainerm: {
     marginBottom: 20,
-    // width:2
+    width: '100%',
   },
   datePickerButtonm: {
     width: '90%',

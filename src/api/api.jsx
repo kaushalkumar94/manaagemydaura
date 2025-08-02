@@ -1,40 +1,32 @@
 import axios from 'axios';
 import {Alert} from 'react-native';
 import * as Keychain from 'react-native-keychain';
-// You might need to import navigation actions if you want to automatically redirect to login
-// import { CommonActions } from '@react-navigation/native'; // Example: for React Navigation v5/6
 
 let navigateToLoginHandler = null;
 
-// Function to set the navigation handler from your main App component
 export const setNavigationHandler = handler => {
   navigateToLoginHandler = handler;
 };
 
-// Create an Axios instance
 const api = axios.create({
-  baseURL: 'https://managemydaura-2.onrender.com/api', // Use your appropriate base URL
+  baseURL: 'https://managemydaura-2.onrender.com/api',
   // baseURL: 'http://10.0.2.2:3000/api',
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Add a request interceptor to include the access token in all requests
 api.interceptors.request.use(
   async config => {
     const credentials = await Keychain.getGenericPassword();
     if (credentials && credentials.username) {
-      // Ensure username (access token) exists
       config.headers['authorization'] = `Bearer ${credentials.username}`;
-      // console.log('Sending token for:', config.url); // For debugging
     }
     return config;
   },
   error => Promise.reject(error),
 );
 
-// --- State for managing concurrent refresh requests ---
 let isRefreshing = false;
 let failedQueue = [];
 
@@ -43,50 +35,46 @@ const processQueue = (error, token = null) => {
     if (error) {
       prom.reject(error);
     } else {
-      // Reconfigure the original request with the new token
       prom.resolve(token);
     }
   });
-  failedQueue = []; // Clear the queue
+  failedQueue = [];
 };
 
-// Add a response interceptor to handle 401, 403, 498 errors (expired/invalid tokens)
 api.interceptors.response.use(
-  response => response, // Directly return successful responses
+  response => response,
   async error => {
     const originalRequest = error.config;
-    // Check if it's a token expiration/invalid error and not already a retry
+
     if (
       error.response &&
       [401, 403, 498].includes(error.response.status) &&
       !originalRequest._retry
     ) {
-      originalRequest._retry = true; // Mark this request as having attempted a retry
+      originalRequest._retry = true;
       console.log(
         `Token error ${error.response.status} for ${originalRequest.url}. Attempting to refresh...`,
       );
 
-      // If a refresh operation is already in progress, queue this request
       if (isRefreshing) {
         return new Promise(function (resolve, reject) {
           failedQueue.push({resolve, reject});
         })
           .then(token => {
-            originalRequest.headers['authorization'] = `Bearer ${token}`; // Update header with new token
-            return api(originalRequest); // Retry the original request
+            originalRequest.headers['authorization'] = `Bearer ${token}`;
+            return api(originalRequest);
           })
           .catch(err => {
-            return Promise.reject(err); // Propagate error if queue processing fails
+            return Promise.reject(err);
           });
       }
 
-      isRefreshing = true; // Set flag to indicate refresh is in progress
+      isRefreshing = true;
 
       try {
-        const refreshSuccess = await refreshAccessToken(); // Call the client-side refresh function
+        const refreshSuccess = await refreshAccessToken();
 
         if (refreshSuccess) {
-          // refreshSuccess is true if new tokens were obtained and stored
           const credentials = await Keychain.getGenericPassword();
           if (credentials && credentials.username) {
             const newAccessToken = credentials.username;
@@ -96,52 +84,48 @@ api.interceptors.response.use(
             originalRequest.headers[
               'authorization'
             ] = `Bearer ${newAccessToken}`;
-            processQueue(null, newAccessToken); // Resolve all queued requests with the new token
-            return api(originalRequest); // Retry the original failed request
+            processQueue(null, newAccessToken);
+            return api(originalRequest);
           } else {
-            // Should ideally not happen if refreshSuccess is true, but as a safeguard
             console.error(
               'Refresh reported success, but no access token found in Keychain.',
             );
-            processQueue(new Error('No access token after refresh.')); // Reject queued
+            processQueue(new Error('No access token after refresh.'));
             Alert.alert('Session Expired', 'Please log in again.');
             if (navigateToLoginHandler) {
-              navigateToLoginHandler(); // Trigger navigation to LoginScreen
+              navigateToLoginHandler();
             }
-            return Promise.reject(error); // Propagate the original error
+            return Promise.reject(error);
           }
         } else {
-          // Refresh failed (e.g., refresh token expired or invalid on backend)
           console.log('Refresh token failed. Forcing logout.');
-          processQueue(new Error('Refresh token failed.')); // Reject queued
+          processQueue(new Error('Refresh token failed.'));
           Alert.alert('Session Expired', 'Please log in again.');
           if (navigateToLoginHandler) {
-            navigateToLoginHandler(); // Trigger navigation to LoginScreen
+            navigateToLoginHandler();
           }
-          return Promise.reject(error); // Propagate the original error
+          return Promise.reject(error);
         }
       } catch (refreshError) {
         console.error(
           'Unexpected error during token refresh process:',
           refreshError,
         );
-        processQueue(refreshError); // Reject queued
+        processQueue(refreshError);
         Alert.alert('Session Expired', 'Please log in again.');
         if (navigateToLoginHandler) {
-          navigateToLoginHandler(); // Trigger navigation to LoginScreen
+          navigateToLoginHandler();
         }
-        return Promise.reject(error); // Propagate the original error
+        return Promise.reject(error);
       } finally {
-        isRefreshing = false; // Reset the refreshing flag regardless of outcome
+        isRefreshing = false;
       }
     }
 
-    return Promise.reject(error); // For all other types of errors (e.g., 400, 500 not related to auth)
+    return Promise.reject(error);
   },
 );
 
-// Client-side Token refresh function
-// This function should be called ONLY by the interceptor
 const refreshAccessToken = async () => {
   try {
     console.log('Client: Attempting to refresh access token with backend...');
@@ -150,15 +134,15 @@ const refreshAccessToken = async () => {
       console.log(
         'Client: No refresh token found in Keychain. Cannot refresh.',
       );
-      await Keychain.resetGenericPassword(); // Clear any partial credentials
-      return false; // Indicate failure: user needs to re-login
+      await Keychain.resetGenericPassword();
+      return false;
     }
-    const currentRefreshToken = credentials.password; // This is the refresh token to send to backend
-    // Use plain axios here to prevent infinite recursion with the interceptor
+    const currentRefreshToken = credentials.password;
+
     const response = await axios.post(
-      'https://managemydaura-2.onrender.com/api/auth/refresh', // Ensure this is your backend refresh endpoint
+      'https://managemydaura-2.onrender.com/api/auth/refresh',
       // 'http://10.0.2.2:3000/api/auth/refresh',
-      {refreshToken: currentRefreshToken}, // Send the current refresh token in the body
+      {refreshToken: currentRefreshToken},
       {
         headers: {
           'Content-Type': 'application/json',
@@ -166,23 +150,22 @@ const refreshAccessToken = async () => {
       },
     );
 
-    // Check if backend successfully returned both new access and refresh tokens
     if (response.data.accessToken && response.data.refreshToken) {
       await Keychain.setGenericPassword(
-        response.data.accessToken, // Store the NEW access token (username)
-        response.data.refreshToken, // Store the NEW refresh token (password)
+        response.data.accessToken,
+        response.data.refreshToken,
       );
       console.log(
         'Client: New access and refresh tokens successfully stored in Keychain.',
       );
-      return true; // Indicate success
+      return true;
     } else {
       console.error(
         'Client: Backend did not provide complete new tokens (access or refresh).',
         response.data,
       );
-      await Keychain.resetGenericPassword(); // Clear credentials on incomplete response
-      return false; // Indicate failure
+      await Keychain.resetGenericPassword();
+      return false;
     }
   } catch (error) {
     console.error(
@@ -190,14 +173,14 @@ const refreshAccessToken = async () => {
       error.response?.status,
       error.message,
     );
-    // If the backend explicitly denied (e.g., 403 because refresh token expired on backend)
+
     if (error.response?.status === 403) {
       console.log(
         'Client: Backend rejected refresh token (likely expired or invalid).',
       );
     }
-    await Keychain.resetGenericPassword(); // Clear credentials on any refresh failure
-    return false; // Indicate failure
+    await Keychain.resetGenericPassword();
+    return false;
   }
 };
 

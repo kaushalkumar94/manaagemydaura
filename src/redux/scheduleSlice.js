@@ -55,7 +55,7 @@ export const sendScheduleWhatsApp = createAsyncThunk(
   async ({scheduleId, date, slots, messages}, {rejectWithValue}) => {
     try {
       const response = await api.post('/sms/schedule-whatsapp', {
-        scheduleId, // <-- ensure scheduleId is sent
+        scheduleId,
         date,
         slots,
         messages,
@@ -72,7 +72,7 @@ export const sendScheduleWhatsApp = createAsyncThunk(
 const scheduleSlice = createSlice({
   name: 'schedule',
   initialState: {
-    schedules: [], // each: { id, date, slots, isSent }
+    schedules: [],
     loading: false,
     error: null,
     successMessage: null,
@@ -86,7 +86,6 @@ const scheduleSlice = createSlice({
   },
   extraReducers: builder => {
     builder
-      // CREATE
       .addCase(createSchedule.pending, state => {
         state.loading = true;
         state.error = null;
@@ -122,7 +121,6 @@ const scheduleSlice = createSlice({
         state.error = action.payload || 'Error creating schedule';
       })
 
-      // FETCH
       .addCase(fetchAllSchedules.pending, state => {
         state.loading = true;
         state.error = null;
@@ -136,10 +134,9 @@ const scheduleSlice = createSlice({
         state.error = action.payload || 'Error fetching schedules';
       })
 
-      // DELETE
       .addCase(deleteSchedule.pending, state => {
-        state.loading = true; // Add loading state
-        state.error = null; // Clear previous errors
+        state.loading = true;
+        state.error = null;
       })
       .addCase(deleteSchedule.fulfilled, (state, action) => {
         state.loading = false;
@@ -151,7 +148,6 @@ const scheduleSlice = createSlice({
       })
 
       .addCase(sendScheduleWhatsApp.fulfilled, (state, action) => {
-        // If backend returns updatedSchedule, use it to update state
         if (action.payload.updatedSchedule) {
           const updated = action.payload.updatedSchedule;
           const idx = state.schedules.findIndex(s => s.id === updated.id);
@@ -159,7 +155,6 @@ const scheduleSlice = createSlice({
             state.schedules[idx] = updated;
           }
         } else {
-          // fallback: update isSent by id
           const {scheduleId} = action.payload;
           const schedule = state.schedules.find(s => s.id === scheduleId);
           if (schedule) {
