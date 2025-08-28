@@ -17,23 +17,21 @@ Built with **React Native** and **Node.js + Express.js**, the app enables real-t
 - **Visits Management**: Store and display upcoming visits (with time, date, and location).  
 - **Unified Timeline**: Merges schedules and visits in chronological order for easy navigation.  
 - **Persistent Storage**: Offline-first experience using Redux Persist & AsyncStorage.  
-- **Analytics-ready Backend**: Data structured in MongoDB & Firebase for easy expansion into analytics and insights.  
+- **Analytics-ready Backend**: Data structured in Firebase for easy expansion into analytics and insights.  
 
 ---
 
 ## 🛠 Tech Stack
 
 **Frontend:**  
-- React Native (Expo)  
+- React Native
 - Redux Toolkit & Redux Persist (state management)  
 - Axios with interceptors (API calls, token refresh)  
 - React Navigation  
 
 **Backend:**  
-- Node.js + Express.js  
-- MongoDB + Mongoose  
+- Node.js + Express.js   
 - Firebase (schedule + visit storage)  
-- Redis (caching & token management)  
 - JWT Authentication  
 
 **Deployment & Tools:**  
