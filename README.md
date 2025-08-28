@@ -1,7 +1,7 @@
 # Manage My Daura 📱
 
 Built and deployed a cross-platform mobile app used for scheduling and updates in real time.
-The application helps in managing visits, streamlining scheduling, and improving team coordination.  
+The application helps in managing visits, streamlining scheduling, and improving team coordination.
 It leverages contact sync from device directories to automate updates, reducing manual communication effort by 80%.
 
 Built with **React Native (frontend)** and **Node.js + Express.js (backend)**, the app enables real-time updates, secure authentication, and smooth data handling with a modern tech stack.  
