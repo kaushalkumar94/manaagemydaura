@@ -42,10 +42,6 @@ Built with **React Native** and **Node.js + Express.js**, the app enables real-t
 
 ---
 
-## 📂 Project Structure
-
----
-
 ## 🛠️ Installation & Setup
 
 ### 1. Clone the repository
