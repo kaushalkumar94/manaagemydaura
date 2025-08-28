@@ -49,7 +49,7 @@ cd managemydaura
 ```
 
 ### 2. Contact
-**Author** - Kartikey
+**Author** - Kartikey  
 **Email** - kartikeym004@gmail.com
 
 ---
