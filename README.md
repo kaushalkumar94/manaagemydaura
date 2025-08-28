@@ -46,3 +46,13 @@ Built with **React Native** and **Node.js + Express.js**, the app enables real-t
 ```bash
 git clone https://github.com/kartikey004/managemydaura.git
 cd managemydaura
+```
+
+### 2. Contact
+**Author** - Kartikey
+**Email** - kartikeym004@gmail.com
+
+---
+
+Enjoy using your Visit & Schedule Manager! If you have any questions or suggestions, feel free to reach out.
+
