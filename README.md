@@ -1,6 +1,6 @@
 # Manage My Daura 📱
 
-Built and deployed a cross-platform mobile app used for scheduling and updates in real time. 
+Built and deployed a cross-platform mobile app used for scheduling and updates in real time.
 The application helps in managing visits, streamlining scheduling, and improving team coordination.  
 It leverages contact sync from device directories to automate updates, reducing manual communication effort by 80%.
 
